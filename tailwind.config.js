@@ -7,8 +7,9 @@ module.exports = {
   ],
   theme: {
     extend: {
-      animation: {
-        'spin': 'spin 1s linear infinite',
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        poppins: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
     },
   },

@@ -14,28 +14,94 @@ body {
   overflow-x: hidden;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root[data-theme='dark'] {
+  --qf-bg-1: #12151a;
+  --qf-bg-2: #171b22;
+  --qf-card-bg: rgba(255, 255, 255, 0.055);
+  --qf-card-bg-soft: rgba(255, 255, 255, 0.04);
+  --qf-card-border: rgba(255, 255, 255, 0.09);
+  --qf-card-border-soft: rgba(255, 255, 255, 0.07);
+  --qf-header-bg: rgba(18, 21, 26, 0.72);
+  --qf-input-bg: rgba(255, 255, 255, 0.05);
+  --qf-input-border: rgba(255, 255, 255, 0.14);
+  --qf-text-1: rgba(255, 255, 255, 0.96);
+  --qf-text-2: rgba(255, 255, 255, 0.6);
+  --qf-text-3: rgba(255, 255, 255, 0.45);
+  --qf-text-4: rgba(255, 255, 255, 0.3);
+  --qf-shimmer-a: rgba(255, 255, 255, 0.06);
+  --qf-shimmer-b: rgba(255, 255, 255, 0.16);
+  --qf-scrollbar-track: rgba(255, 255, 255, 0.05);
 }
 
-/* Custom scrollbar */
+:root[data-theme='light'] {
+  --qf-bg-1: #f3f6f5;
+  --qf-bg-2: #e6ebe9;
+  --qf-card-bg: rgba(11, 21, 18, 0.04);
+  --qf-card-bg-soft: rgba(11, 21, 18, 0.03);
+  --qf-card-border: rgba(11, 21, 18, 0.1);
+  --qf-card-border-soft: rgba(11, 21, 18, 0.08);
+  --qf-header-bg: rgba(243, 246, 245, 0.78);
+  --qf-input-bg: rgba(11, 21, 18, 0.035);
+  --qf-input-border: rgba(11, 21, 18, 0.16);
+  --qf-text-1: rgba(11, 21, 18, 0.92);
+  --qf-text-2: rgba(11, 21, 18, 0.62);
+  --qf-text-3: rgba(11, 21, 18, 0.48);
+  --qf-text-4: rgba(11, 21, 18, 0.36);
+  --qf-shimmer-a: rgba(11, 21, 18, 0.05);
+  --qf-shimmer-b: rgba(11, 21, 18, 0.12);
+  --qf-scrollbar-track: rgba(11, 21, 18, 0.06);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--qf-bg-1);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--qf-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(94, 234, 212, 0.3);
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(94, 234, 212, 0.5);
+}
+
+@keyframes qf-shimmer {
+  0% { background-position: -300px 0; }
+  100% { background-position: 300px 0; }
+}
+
+@keyframes qf-toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes qf-confetti-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(220px) rotate(340deg); opacity: 0; }
+}
+
+@keyframes qf-fadeup {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.qf-shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    var(--qf-shimmer-a) 25%,
+    var(--qf-shimmer-b) 37%,
+    var(--qf-shimmer-a) 63%
+  );
+  background-size: 400px 100%;
+  animation: qf-shimmer 1.3s infinite;
 }
