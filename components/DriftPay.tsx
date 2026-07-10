@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { stellar } from '@/lib/stellar-helper';
+import { enrichHistory } from '@/lib/txEnrich';
 import { Section } from './Section';
 import { WalletStep } from './steps/WalletStep';
 import { BalanceStep } from './steps/BalanceStep';
@@ -72,7 +73,11 @@ export default function DriftPay() {
   };
 
   const burstConfetti = () => {
-    setConfetti(makeConfettiBurst());
+    const cs = getComputedStyle(document.documentElement);
+    const colors = ['--qf-accent-1', '--qf-accent-2', '--qf-secondary'].map((v) =>
+      cs.getPropertyValue(v).trim()
+    );
+    setConfetti(makeConfettiBurst(colors));
     setTimeout(() => setConfetti([]), 1700);
   };
 
@@ -95,7 +100,8 @@ export default function DriftPay() {
     setHistoryLoading(true);
     setHistoryError('');
     try {
-      const txs = await stellar.getRecentTransactions(key, 10);
+      const rawTxs = await stellar.getRecentTransactions(key, 10);
+      const txs = await enrichHistory(rawTxs, key);
       setTxDeltas(
         txs.map((tx) => {
           if (tx.type === 'create_account' || !tx.amount) return null;
@@ -116,12 +122,23 @@ export default function DriftPay() {
               amountLabel: 'Funded',
             };
           }
+          if (tx.contractCall && !tx.amount) {
+            return {
+              id: tx.id,
+              outgoing: false,
+              label: 'Contract call',
+              time: relativeTime(tx.createdAt),
+              counterparty: 'no balance change',
+              amountLabel: '—',
+            };
+          }
           const outgoing = tx.from === key;
           const counterparty = outgoing ? tx.to : tx.from;
+          const label = tx.contractCall ? (outgoing ? 'Sent (contract)' : 'Received (contract)') : outgoing ? 'Sent' : 'Received';
           return {
             id: tx.id,
             outgoing,
-            label: outgoing ? 'Sent' : 'Received',
+            label,
             time: relativeTime(tx.createdAt),
             counterparty: shortAddress(counterparty || ''),
             amountLabel: tx.amount
@@ -245,12 +262,12 @@ export default function DriftPay() {
       <header className="sticky top-0 z-20 bg-[var(--qf-header-bg)] backdrop-blur-2xl border-b border-[var(--qf-card-border)]">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#5EEAD4] to-[#0D9488] flex items-center justify-center text-lg flex-shrink-0">
-              🌊
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--qf-accent-1)] to-[var(--qf-accent-2)] flex items-center justify-center flex-shrink-0">
+              <span className="text-[15px] text-[var(--qf-accent-ink)] opacity-85">◆</span>
             </div>
             <div className="min-w-0">
               <p className="font-poppins font-semibold text-[17px] text-[var(--qf-text-1)] truncate">DriftPay</p>
-              <p className="hidden sm:block text-[11.5px] text-[var(--qf-text-3)]">Your Stellar wallet</p>
+              <p className="hidden sm:block text-[11.5px] text-[var(--qf-text-3)]">Your wallet, made simple</p>
             </div>
           </div>
           <nav className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
@@ -260,15 +277,7 @@ export default function DriftPay() {
               rel="noopener noreferrer"
               className="hidden sm:inline-flex text-[13.5px] text-[var(--qf-text-2)] whitespace-nowrap flex-shrink-0"
             >
-              About Stellar
-            </a>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex text-[13.5px] text-[var(--qf-text-2)] whitespace-nowrap flex-shrink-0"
-            >
-              GitHub
+              Learn more
             </a>
             {connected && (
               <span className="font-mono text-xs text-[var(--qf-text-3)] bg-[var(--qf-input-bg)] border border-[var(--qf-card-border)] py-[7px] px-3 rounded-full whitespace-nowrap flex-shrink-0">
@@ -283,11 +292,11 @@ export default function DriftPay() {
       {!connected && (
         <div className="max-w-[680px] mx-auto px-4 sm:px-6 pt-14 pb-2 text-center">
           <h1 className="mb-3.5 font-poppins font-bold text-[clamp(30px,4vw,42px)] leading-[1.15] text-[var(--qf-text-1)]">
-            Your money, on Stellar.
+            Your money. Ready when you are.
           </h1>
           <p className="mx-auto max-w-[480px] text-base leading-relaxed text-[var(--qf-text-2)]">
             Connect a wallet to check your balance, send payments, and keep track of your
-            activity — fast, low-cost, and yours to control.
+            activity — with more assets and networks on the way.
           </p>
         </div>
       )}
@@ -369,12 +378,7 @@ export default function DriftPay() {
         </div>
       </main>
 
-      <footer className="border-t border-[var(--qf-card-border)] mt-6">
-        <div className="max-w-[1100px] mx-auto px-6 py-8 text-center">
-          <p className="mb-1.5 text-[12.5px] text-[var(--qf-text-4)]">Currently running on Stellar testnet · no real funds</p>
-          <p className="text-xs text-[var(--qf-text-4)]">DriftPay is in early access</p>
-        </div>
-      </footer>
+      <footer className="border-t border-[var(--qf-card-border)] mt-6 h-px" />
 
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       <Confetti particles={confetti} />

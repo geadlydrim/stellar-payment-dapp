@@ -8,8 +8,7 @@ interface Particle {
   square: boolean;
 }
 
-export function makeConfettiBurst(): Particle[] {
-  const colors = ['#5EEAD4', '#0D9488', '#ffffff'];
+export function makeConfettiBurst(colors: string[] = ['#5EEAD4', '#0D9488', '#ffffff']): Particle[] {
   const particles: Particle[] = [];
   for (let i = 0; i < 24; i++) {
     particles.push({

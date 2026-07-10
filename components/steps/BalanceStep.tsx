@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useCountUp } from '@/lib/useCountUp';
 import { Sparkline } from '../ui/Sparkline';
 
@@ -25,6 +26,16 @@ export function BalanceStep({
   balancePoints: number[];
 }) {
   const animatedBalance = useCountUp(balance);
+  const [flash, setFlash] = useState(false);
+  const prevBalance = useRef(balance);
+
+  useEffect(() => {
+    if (prevBalance.current === balance) return;
+    prevBalance.current = balance;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), 700);
+    return () => clearTimeout(t);
+  }, [balance]);
 
   if (disabled) {
     return <p className="mt-2 text-[14.5px] text-[var(--qf-text-4)]">Connect a wallet to see your balance.</p>;
@@ -39,10 +50,13 @@ export function BalanceStep({
           <div className="h-9 rounded-[10px] qf-shimmer-bg" />
         </>
       ) : error ? (
-        <p className="text-[13px] text-[#F87171] leading-relaxed">{error}</p>
+        <p className="text-[13px] text-[#EF4444] leading-relaxed">{error}</p>
       ) : (
         <>
-          <div className="flex items-baseline gap-2.5 mb-3">
+          <div
+            className="flex items-baseline gap-2.5 mb-3 -ml-1 rounded-xl px-1 py-0.5"
+            style={flash ? { animation: 'qf-flash 0.7s ease-out' } : undefined}
+          >
             <span className="font-poppins font-bold text-[38px] text-[var(--qf-text-1)]">
               {animatedBalance.toFixed(2)}
             </span>
@@ -65,7 +79,10 @@ export function BalanceStep({
                   key={`${asset.code}-${asset.issuer}`}
                   className="flex items-center justify-between gap-3 bg-[var(--qf-card-bg-soft)] border border-[var(--qf-card-border-soft)] rounded-xl py-2.5 px-3.5"
                 >
-                  <span className="text-[13px] font-medium text-[var(--qf-text-1)]">{asset.code}</span>
+                  <span className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--qf-text-1)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--qf-secondary)] inline-block" />
+                    {asset.code}
+                  </span>
                   <span className="font-poppins font-semibold text-[13px] text-[var(--qf-text-2)] tabular-nums">
                     {parseFloat(asset.balance).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>

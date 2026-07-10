@@ -40,7 +40,7 @@ export function Sparkline({ points }: { points: number[] }) {
           <title>{c.value.toFixed(2)} XLM</title>
         </circle>
       ))}
-      <circle cx={last.x} cy={last.y} r={4} fill="#5EEAD4" stroke="var(--qf-card-bg)" strokeWidth={2} />
+      <circle cx={last.x} cy={last.y} r={4} fill="var(--qf-accent-2)" stroke="var(--qf-card-bg)" strokeWidth={2} />
     </svg>
   );
 }

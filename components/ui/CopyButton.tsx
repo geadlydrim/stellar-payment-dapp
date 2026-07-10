@@ -15,7 +15,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       onClick={handleCopy}
       title={copied ? 'Copied!' : 'Copy address'}
-      className="text-[var(--qf-text-3)] hover:text-[#5EEAD4] cursor-pointer text-xs flex-shrink-0 transition-colors"
+      className="text-[var(--qf-text-3)] hover:text-[var(--qf-text-1)] cursor-pointer text-xs flex-shrink-0 transition-colors"
     >
       {copied ? '✓' : '⧉'}
     </button>

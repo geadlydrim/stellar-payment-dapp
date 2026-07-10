@@ -2,32 +2,48 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light';
+export type Palette = 'sherbet' | 'mintfog';
+export type Mode = 'day' | 'night';
 
-const ThemeContext = createContext<{ theme: Theme; toggleTheme: () => void } | null>(null);
+const ThemeContext = createContext<{
+  palette: Palette;
+  mode: Mode;
+  setPalette: (p: Palette) => void;
+  toggleMode: () => void;
+} | null>(null);
 
-const STORAGE_KEY = 'driftpay:theme';
+const PALETTE_KEY = 'driftpay:palette';
+const MODE_KEY = 'driftpay:mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [palette, setPaletteState] = useState<Palette>('mintfog');
+  const [mode, setModeState] = useState<Mode>('day');
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') {
-      setTheme(stored);
-    } else {
-      setTheme((document.documentElement.dataset.theme as Theme) || 'dark');
-    }
+    const storedPalette = localStorage.getItem(PALETTE_KEY);
+    const storedMode = localStorage.getItem(MODE_KEY);
+    if (storedPalette === 'sherbet' || storedPalette === 'mintfog') setPaletteState(storedPalette);
+    if (storedMode === 'day' || storedMode === 'night') setModeState(storedMode);
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(STORAGE_KEY, theme);
-  }, [theme]);
+    document.documentElement.dataset.palette = palette;
+    localStorage.setItem(PALETTE_KEY, palette);
+  }, [palette]);
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  useEffect(() => {
+    document.documentElement.dataset.mode = mode;
+    localStorage.setItem(MODE_KEY, mode);
+  }, [mode]);
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
+  const setPalette = (p: Palette) => setPaletteState(p);
+  const toggleMode = () => setModeState((m) => (m === 'day' ? 'night' : 'day'));
+
+  return (
+    <ThemeContext.Provider value={{ palette, mode, setPalette, toggleMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

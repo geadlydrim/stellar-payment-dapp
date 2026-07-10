@@ -65,7 +65,7 @@ export function AddressBook({
               </button>
               <button
                 onClick={() => handleDelete(e.address)}
-                className="border-none bg-transparent cursor-pointer text-[var(--qf-text-4)] hover:text-[#F87171] w-5 h-5 rounded-full flex items-center justify-center text-[11px]"
+                className="border-none bg-transparent cursor-pointer text-[var(--qf-text-4)] hover:text-[#EF4444] w-5 h-5 rounded-full flex items-center justify-center text-[11px]"
                 title="Remove"
               >
                 ✕
@@ -82,18 +82,18 @@ export function AddressBook({
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder="Label"
-            className="w-[100px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1.5 px-2.5 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+            className="w-[100px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1.5 px-2.5 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none"
           />
           <input
             type="text"
             value={newAddress}
             onChange={(e) => setNewAddress(e.target.value)}
             placeholder="G…"
-            className="flex-1 min-w-[140px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1.5 px-2.5 text-[12px] font-mono text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+            className="flex-1 min-w-[140px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1.5 px-2.5 text-[12px] font-mono text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none"
           />
           <button
             onClick={handleAdd}
-            className="border-none cursor-pointer bg-[#5EEAD4]/15 text-[#5EEAD4] text-[12px] font-medium py-1.5 px-3 rounded-lg"
+            className="border-none cursor-pointer bg-[var(--qf-input-bg)] text-[var(--qf-text-1)] text-[12px] font-medium py-1.5 px-3 rounded-lg"
           >
             Save
           </button>
@@ -107,14 +107,14 @@ export function AddressBook({
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="text-[12px] text-[var(--qf-text-3)] hover:text-[#5EEAD4] cursor-pointer underline decoration-dotted"
+          className="text-[12px] text-[var(--qf-text-3)] cursor-pointer underline decoration-dotted"
         >
           + Save an address
         </button>
       )}
 
       {showSavePrompt && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 bg-[#5EEAD4]/10 border border-[#5EEAD4]/25 rounded-xl py-2 px-3">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 bg-[var(--qf-card-bg-soft)] border border-[var(--qf-card-border-soft)] rounded-xl py-2 px-3">
           <span className="text-[12px] text-[var(--qf-text-2)]">
             Save {shortAddr(lastSentTo!)} to your address book?
           </span>
@@ -123,11 +123,11 @@ export function AddressBook({
             value={savePromptLabel}
             onChange={(e) => setSavePromptLabel(e.target.value)}
             placeholder="Label"
-            className="w-[90px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1 px-2 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+            className="w-[90px] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-lg py-1 px-2 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none"
           />
           <button
             onClick={handleSavePrompt}
-            className="border-none cursor-pointer bg-[#5EEAD4]/20 text-[#5EEAD4] text-[12px] font-medium py-1 px-2.5 rounded-lg"
+            className="border-none cursor-pointer bg-[var(--qf-input-bg)] text-[var(--qf-text-1)] text-[12px] font-medium py-1 px-2.5 rounded-lg"
           >
             Save
           </button>

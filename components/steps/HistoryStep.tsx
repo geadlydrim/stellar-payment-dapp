@@ -50,7 +50,7 @@ export function HistoryStep({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            className="w-[110px] focus:w-[150px] transition-[width] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-full py-1.5 px-3 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+            className="w-[110px] focus:w-[150px] transition-[width] box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-full py-1.5 px-3 text-[12px] text-[var(--qf-text-1)] placeholder-[var(--qf-text-4)] focus:outline-none"
           />
         )}
       </div>
@@ -61,7 +61,7 @@ export function HistoryStep({
           <div className="h-[58px] rounded-2xl qf-shimmer-bg" />
         </div>
       ) : error ? (
-        <p className="text-[13px] text-[#F87171] leading-relaxed">{error}</p>
+        <p className="text-[13px] text-[#EF4444] leading-relaxed">{error}</p>
       ) : history.length === 0 ? (
         <p className="text-[14px] text-[var(--qf-text-3)]">No activity yet — send or receive to start your log.</p>
       ) : filtered.length === 0 ? (
@@ -74,9 +74,12 @@ export function HistoryStep({
               className="flex items-center gap-3 bg-[var(--qf-card-bg-soft)] border border-[var(--qf-card-border-soft)] rounded-2xl py-[13px] px-[15px] animate-qf-fadeup"
             >
               <div
-                className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-base ${
-                  tx.outgoing ? 'bg-[#FB923C]/[0.16]' : 'bg-[#5EEAD4]/[0.16]'
-                }`}
+                className="w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-base opacity-85"
+                style={{
+                  background: tx.outgoing
+                    ? 'var(--qf-secondary)'
+                    : 'linear-gradient(135deg,var(--qf-accent-1),var(--qf-accent-2))',
+                }}
               >
                 {tx.outgoing ? '↗️' : '↘️'}
               </div>
@@ -88,7 +91,7 @@ export function HistoryStep({
               </div>
               <p
                 className="font-poppins font-semibold text-[14.5px]"
-                style={{ color: tx.outgoing ? '#FB923C' : '#5EEAD4' }}
+                style={{ color: tx.outgoing ? 'var(--qf-text-2)' : 'var(--qf-text-1)' }}
               >
                 {tx.amountLabel}
               </p>

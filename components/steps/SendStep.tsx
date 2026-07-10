@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AddressBook } from '../AddressBook';
 
 interface SendStepProps {
@@ -41,6 +41,18 @@ export function SendStep({
   onConfirmSend,
 }: SendStepProps) {
   const [confirming, setConfirming] = useState(false);
+  const [justSucceeded, setJustSucceeded] = useState(false);
+  const wasSending = useRef(false);
+
+  useEffect(() => {
+    if (wasSending.current && !sending && lastTxHash) {
+      setJustSucceeded(true);
+      const t = setTimeout(() => setJustSucceeded(false), 900);
+      wasSending.current = sending;
+      return () => clearTimeout(t);
+    }
+    wasSending.current = sending;
+  }, [sending, lastTxHash]);
 
   if (disabled) {
     return <p className="mt-2 text-[14.5px] text-[var(--qf-text-4)]">Connect a wallet to send a payment.</p>;
@@ -56,6 +68,20 @@ export function SendStep({
     onConfirmSend();
   };
 
+  const primaryBtnStyle: CSSProperties = {
+    background: 'linear-gradient(135deg,var(--qf-accent-1),var(--qf-accent-2))',
+    color: 'var(--qf-accent-ink)',
+    boxShadow: '0 6px 18px var(--qf-accent-glow)',
+    animation: 'qf-breathe 2.6s ease-in-out infinite',
+    animationPlayState: sending ? 'paused' : 'running',
+  };
+  const confirmBtnStyle: CSSProperties = {
+    background: 'linear-gradient(135deg,var(--qf-accent-1),var(--qf-accent-2))',
+    color: 'var(--qf-accent-ink)',
+    boxShadow: '0 6px 16px var(--qf-accent-glow)',
+  };
+  const spinnerStyle: CSSProperties = { borderColor: 'var(--qf-accent-ink)', borderRightColor: 'transparent' };
+
   return (
     <>
       <h2 className="mt-1 mb-[18px] font-poppins font-semibold text-[21px] text-[var(--qf-text-1)]">
@@ -63,20 +89,23 @@ export function SendStep({
       </h2>
 
       {lastTxHash && (
-        <div className="mb-4 bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 rounded-2xl p-3.5 text-[12.5px] text-[var(--qf-text-2)]">
-          <p className="mb-1">✓ Sent — confirmed on-chain</p>
+        <div className="mb-4 bg-[#22C55E]/10 border border-[#22C55E]/30 rounded-2xl p-3.5 text-[12.5px] text-[var(--qf-text-2)]">
+          <p className="mb-1 text-[#16A34A] font-semibold">✓ Sent — confirmed on-chain</p>
+          <p className="mb-1 font-mono break-all text-[var(--qf-text-2)]">
+            Transaction hash: {lastTxHash}
+          </p>
           <a
             href={explorerLink(lastTxHash)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#5EEAD4] underline break-all"
+            className="text-[#16A34A] underline break-all"
           >
-            {lastTxHash.slice(0, 12)}… view on Stellar Expert →
+            view on Stellar Expert →
           </a>
         </div>
       )}
       {sendError && (
-        <div className="mb-4 bg-[#F87171]/10 border border-[#F87171]/30 rounded-2xl p-3.5 text-[12.5px] text-[#F87171]">
+        <div className="mb-4 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl p-3.5 text-[12.5px] text-[#EF4444]">
           {sendError}
         </div>
       )}
@@ -110,16 +139,28 @@ export function SendStep({
             <button
               onClick={() => setConfirming(false)}
               disabled={sending}
-              className="flex-1 border border-[var(--qf-input-border)] bg-transparent cursor-pointer text-[var(--qf-text-2)] font-medium text-[13.5px] py-3 px-4 rounded-full transition-colors hover:bg-[var(--qf-card-bg-soft)] disabled:opacity-60"
+              className="flex-1 border border-[var(--qf-input-border)] bg-transparent cursor-pointer text-[var(--qf-text-2)] font-medium text-[13.5px] py-3 px-4 rounded-full transition-colors hover:bg-[var(--qf-card-border-soft)] disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirm}
               disabled={sending}
-              className="flex-1 border-none cursor-pointer bg-gradient-to-br from-[#5EEAD4] to-[#0D9488] text-[#0b1512] font-poppins font-semibold text-[13.5px] py-3 px-4 rounded-full transition-transform duration-[180ms] ease-[cubic-bezier(.34,1.56,.64,1)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+              style={confirmBtnStyle}
+              className="flex-1 border-none cursor-pointer font-poppins font-semibold text-[13.5px] py-3 px-4 rounded-full inline-flex items-center justify-center gap-1.5 transition-transform duration-[220ms] ease-[cubic-bezier(.34,1.56,.64,1)] hover:scale-[1.035] active:scale-[0.97] disabled:opacity-60"
             >
-              Confirm & Send
+              {sending && (
+                <span
+                  className="w-[15px] h-[15px] rounded-full border-2 border-r-transparent inline-block animate-spin opacity-55"
+                  style={spinnerStyle}
+                />
+              )}
+              {justSucceeded && (
+                <span className="inline-block" style={{ animation: 'qf-check-pop 0.4s cubic-bezier(.34,1.56,.64,1) both' }}>
+                  ✓
+                </span>
+              )}
+              {sending ? 'Sending…' : justSucceeded ? 'Sent!' : 'Confirm & Send'}
             </button>
           </div>
         </div>
@@ -134,9 +175,9 @@ export function SendStep({
                 value={recipient}
                 onChange={(e) => onRecipientChange(e.target.value)}
                 placeholder="G…"
-                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] font-mono text-[13.5px] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] font-mono text-[13.5px] placeholder-[var(--qf-text-4)] focus:outline-none"
               />
-              {recipientError && <p className="mt-1.5 text-[12.5px] text-[#F87171]">{recipientError}</p>}
+              {recipientError && <p className="mt-1.5 text-[12.5px] text-[#EF4444]">{recipientError}</p>}
             </div>
             <div>
               <label className="block mb-1.5 text-[12.5px] text-[var(--qf-text-3)]">Amount</label>
@@ -145,9 +186,9 @@ export function SendStep({
                 value={amount}
                 onChange={(e) => onAmountChange(e.target.value)}
                 placeholder="0.00"
-                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] text-[14.5px] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] text-[14.5px] placeholder-[var(--qf-text-4)] focus:outline-none"
               />
-              {amountError && <p className="mt-1.5 text-[12.5px] text-[#F87171]">{amountError}</p>}
+              {amountError && <p className="mt-1.5 text-[12.5px] text-[#EF4444]">{amountError}</p>}
             </div>
             <div>
               <label className="block mb-1.5 text-[12.5px] text-[var(--qf-text-3)]">Memo (optional)</label>
@@ -156,13 +197,14 @@ export function SendStep({
                 value={memo}
                 onChange={(e) => onMemoChange(e.target.value)}
                 placeholder="hey, this one's on me"
-                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] text-[14.5px] placeholder-[var(--qf-text-4)] focus:outline-none focus:border-[#5EEAD4]/50"
+                className="w-full box-border bg-[var(--qf-input-bg)] border border-[var(--qf-input-border)] rounded-xl py-[13px] px-3.5 text-[var(--qf-text-1)] text-[14.5px] placeholder-[var(--qf-text-4)] focus:outline-none"
               />
             </div>
             <button
               type="submit"
               disabled={sending}
-              className="border-none cursor-pointer bg-gradient-to-br from-[#5EEAD4] to-[#0D9488] text-[#0b1512] font-poppins font-semibold text-[15px] py-[15px] px-5 rounded-full mt-1 transition-transform duration-[180ms] ease-[cubic-bezier(.34,1.56,.64,1)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              style={primaryBtnStyle}
+              className="border-none cursor-pointer font-poppins font-semibold text-[15px] py-[15px] px-5 rounded-full mt-1 transition-transform duration-[220ms] ease-[cubic-bezier(.34,1.56,.64,1)] hover:scale-[1.035] active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {sending ? 'Sending…' : 'Review payment'}
             </button>
