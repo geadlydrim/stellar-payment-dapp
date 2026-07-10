@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { stellar } from '@/lib/stellar-helper';
 import { enrichHistory } from '@/lib/txEnrich';
 import { Section } from './Section';
@@ -17,6 +17,27 @@ function friendlyLoadError(err: any): string {
     return 'Account not found on testnet yet — fund it with Friendbot first.';
   }
   return 'Could not load. Try again?';
+}
+
+function friendlyConnectError(err: any): string {
+  const raw: string = err?.message || '';
+  if (raw.includes('no elements in sequence')) {
+    return 'No wallet selected — pick one from the list, or make sure your wallet extension is unlocked.';
+  }
+  if (raw.toLowerCase().includes('not installed') || raw.toLowerCase().includes('not found')) {
+    return 'No Stellar wallet found. Install Freighter or another supported wallet and try again.';
+  }
+  if (raw.toLowerCase().includes('rejected') || raw.toLowerCase().includes('declined')) {
+    return 'Connection request was declined.';
+  }
+  if (raw.toLowerCase().includes('decrypted message is null')) {
+    return 'The wallet-connect session expired or was reused. Close the QR modal, reopen it, and pair again with a fresh session.';
+  }
+  return 'Could not connect. Try again?';
+}
+
+function isWalletConnectDecryptError(message: unknown): boolean {
+  return typeof message === 'string' && message.toLowerCase().includes('decrypted message is null');
 }
 
 function shortAddress(addr: string): string {
@@ -66,6 +87,29 @@ export default function DriftPay() {
 
   const [toast, setToast] = useState<string | null>(null);
   const [confetti, setConfetti] = useState<ReturnType<typeof makeConfettiBurst>>([]);
+
+  useEffect(() => {
+    const handleWindowError = (e: ErrorEvent) => {
+      if (isWalletConnectDecryptError(e.message)) {
+        e.preventDefault();
+        setConnecting(false);
+        setConnectError(friendlyConnectError({ message: e.message }));
+      }
+    };
+    const handleRejection = (e: PromiseRejectionEvent) => {
+      if (isWalletConnectDecryptError(e.reason?.message)) {
+        e.preventDefault();
+        setConnecting(false);
+        setConnectError(friendlyConnectError({ message: e.reason.message }));
+      }
+    };
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -165,7 +209,7 @@ export default function DriftPay() {
       loadBalance(key);
       loadHistory(key);
     } catch (err: any) {
-      setConnectError(err.message || 'Could not connect. Try again?');
+      setConnectError(friendlyConnectError(err));
     } finally {
       setConnecting(false);
     }
