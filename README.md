@@ -101,26 +101,39 @@ stellar-payment-dapp/
 ## Screenshots
 
 **Connect wallet**
+<img width="1920" height="925" alt="Screenshot From 2026-07-10 12-14-13" src="https://github.com/user-attachments/assets/a8465776-2c78-43b0-852a-8be57b60e6ac" />
 
 **Balance + sparkline**
+<img width="1920" height="925" alt="Screenshot From 2026-07-10 12-14-27" src="https://github.com/user-attachments/assets/6eb9d5ac-3a4e-4346-9ba5-172dd045fab4" />
 
 **Send flow — confirm step**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/83c151b0-7b01-4967-bc77-7b65877f09cc" />
 
 **Send flow — success**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/6a07f07d-8a6b-4233-ab4c-92664abaa6f3" />
 
 **Transaction history + search**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/d97027e0-71b2-4c6f-9eba-808f5d4eeb6d" />
 
 **Address book**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/bd05f5d2-335d-4231-8cac-952bb0c9e41c" />
 
 **Sherbet theme, day mode**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/0ea7df87-d3f9-4440-9e5d-a33cd32a6e0a" />
 
 **Sherbet theme, night mode**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/637496ce-0238-4467-ace9-07a0fbeb14fc" />
 
 **Mint Fog theme, day mode**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/2daf3a3b-89d8-4ca1-940b-a6d873e80a37" />
 
 **Mint Fog theme, night mode**
+<img width="1920" height="926" alt="image" src="https://github.com/user-attachments/assets/c5b4a9e9-d045-4672-a3ac-9c50c29b04bd" />
 
 **Mobile view**
+
+<img width="457" height="811" alt="Screenshot From 2026-07-10 13-27-40" src="https://github.com/user-attachments/assets/6d63864c-d01b-4cc1-b120-6ce9ddf064fa" /> <img width="457" height="811" alt="Screenshot From 2026-07-10 13-27-45" src="https://github.com/user-attachments/assets/4d914a52-d6db-4f66-af8c-e50971d054a5" /> <img width="457" height="811" alt="Screenshot From 2026-07-10 13-27-47" src="https://github.com/user-attachments/assets/a6db1e09-fd3a-477b-b752-df716e679b9f" /> <img width="457" height="811" alt="Screenshot From 2026-07-10 13-27-59" src="https://github.com/user-attachments/assets/839d89ff-7ff3-4204-a130-bb4353311581" /> <img width="457" height="811" alt="Screenshot From 2026-07-10 13-28-04" src="https://github.com/user-attachments/assets/723325e0-8901-4237-a2fa-b2a793c6acd9" /> <img width="457" height="811" alt="Screenshot From 2026-07-10 13-31-31" src="https://github.com/user-attachments/assets/29323509-f3bf-4754-8475-0ce3dbf2c6ef" />
+
 
 ---
 
