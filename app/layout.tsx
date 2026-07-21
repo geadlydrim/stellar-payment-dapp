@@ -16,15 +16,16 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'DriftPay — Your wallet, made simple',
-  description: 'A simple wallet for sending, receiving, and tracking payments on Stellar.',
+  title: 'BidDrift — Real-time auctions on Stellar',
+  description:
+    'Create auctions, place escrowed XLM bids, and watch live updates on Stellar testnet.',
 };
 
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var palette = localStorage.getItem('driftpay:palette');
-    var mode = localStorage.getItem('driftpay:mode');
+    var palette = localStorage.getItem('biddrift:palette');
+    var mode = localStorage.getItem('biddrift:mode');
     document.documentElement.dataset.palette = (palette === 'sherbet' || palette === 'mintfog') ? palette : 'mintfog';
     document.documentElement.dataset.mode = (mode === 'day' || mode === 'night') ? mode : 'day';
   } catch (e) {

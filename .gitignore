@@ -16,6 +16,7 @@
 # misc
 .DS_Store
 *.pem
+TASK.md
 
 # debug
 npm-debug.log*
@@ -31,3 +32,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Rust / Soroban build artifacts
+contracts/**/target/
+**/target/wasm32-unknown-unknown/

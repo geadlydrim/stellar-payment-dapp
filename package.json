@@ -1,7 +1,7 @@
 {
-  "name": "stellar-frontend-challenge",
-  "version": "1.0.0",
-  "description": "Stellar Frontend Challenge - Build a payment dashboard",
+  "name": "biddrift-auction-dapp",
+  "version": "2.0.0",
+  "description": "BidDrift — real-time multi-auction dApp on Stellar testnet",
   "private": true,
   "scripts": {
     "dev": "next dev",

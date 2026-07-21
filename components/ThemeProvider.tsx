@@ -12,8 +12,8 @@ const ThemeContext = createContext<{
   toggleMode: () => void;
 } | null>(null);
 
-const PALETTE_KEY = 'driftpay:palette';
-const MODE_KEY = 'driftpay:mode';
+const PALETTE_KEY = 'biddrift:palette';
+const MODE_KEY = 'biddrift:mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [palette, setPaletteState] = useState<Palette>('mintfog');
