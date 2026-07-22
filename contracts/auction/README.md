@@ -61,14 +61,12 @@ stellar contract deploy \
 ```
 
 Copy the printed **contract ID** (starts with `C`).
-CCUVKVMD5WDNQM6TSJVF4QTSH2U43T6RPXULZCT3CRAOJ45UIW2Z5B5G
 
 ## Get the native SAC address
 
 ```bash
 stellar contract id asset --asset native --network testnet
 ```
-CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 
 This is the Stellar Asset Contract address for native XLM on testnet.
 
