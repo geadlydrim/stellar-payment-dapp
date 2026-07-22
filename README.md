@@ -6,7 +6,8 @@ Real-time multi-auction marketplace on Stellar testnet — create listings, escr
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Contract-purple)](https://developers.stellar.org/docs/build/smart-contracts)
 
-**Demo:** _[add your live demo URL here]_
+**Demo:** 
+_https://bid-drift.vercel.app/_
 
 ## What it is
 
@@ -51,25 +52,40 @@ Soroban `contracterror` codes from the auction contract are mapped to the same f
 
 ## Screenshots
 
-_[Add screenshots here]_
-
 **Connect wallet**
 
-<!-- screenshot -->
+<img width="1100" alt="Screenshot From 2026-07-22 22-59-45" src="https://github.com/user-attachments/assets/af11ca45-4fa7-4c1d-ad66-fc86a1400b04" />
+<img width="238" height="73" alt="image" src="https://github.com/user-attachments/assets/933364f1-13a5-473d-bf0e-962b67319303" />
 
 **Auction list + live activity**
 
-<!-- screenshot -->
+<img width="1100" alt="image" src="https://github.com/user-attachments/assets/e3201ed7-0ef4-48fc-bd50-db237b1a168a" />
+<img width="1100" alt="image" src="https://github.com/user-attachments/assets/d7feb690-3134-48bf-8cd1-e2b892c092d1" />
 
 **Create auction — transaction status**
 
-<!-- screenshot -->
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/7ce8c6d2-5937-4044-b1aa-bb7ae62e86ae" />
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/6504042f-9164-4f70-890e-b3e9c11a3e11" />
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/16826f45-8c64-4c42-8a07-22067463fde3" />
 
 **Place bid — success**
 
-<!-- screenshot -->
+<img width="500" alt="Screenshot From 2026-07-22 23-08-56" src="https://github.com/user-attachments/assets/1449fef9-f280-4b23-bb27-675f9709e598" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/d550aa98-e1a3-444b-aaa7-653ac8f1c063" />
+
+**Auction End**
+
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/21cc98c9-8d63-4280-b761-0d2ea0be2e1e" />
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/03bdfc86-25a4-4f05-a421-0f339ce5f194" />
+<img width="330" alt="image" src="https://github.com/user-attachments/assets/98fc1540-b4ef-4909-affe-36096440d518" />
+
 
 **Mobile**
+
+<img width="240" alt="Screenshot From 2026-07-22 23-12-21" src="https://github.com/user-attachments/assets/40a8ab86-aad2-4d47-9c21-ac14f693cb1c" />
+<img width="240" alt="Screenshot From 2026-07-22 23-13-03" src="https://github.com/user-attachments/assets/3a0edff5-4fa2-46ad-b8b8-927a6175b3f8" />
+<img width="240" alt="Screenshot From 2026-07-22 23-13-13" src="https://github.com/user-attachments/assets/d739a038-8787-41c9-ac0b-0ebe8df9c206" />
+<img width="240" alt="Screenshot From 2026-07-22 23-13-21" src="https://github.com/user-attachments/assets/5ba505d6-4052-4e32-ad52-fd7ed2b6f663" />
 
 <!-- screenshot -->
 
