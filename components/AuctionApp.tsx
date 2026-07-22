@@ -7,7 +7,7 @@ import {
   disconnect as walletDisconnect,
 } from '@/lib/wallet';
 import { listAuctions, friendlyAuctionError, type Auction } from '@/lib/auction';
-import { getContractEvents } from '@/lib/soroban';
+import { getContractEvents, EVENT_BACKFILL_LEDGERS, type ContractEvent } from '@/lib/soroban';
 import { Section } from './Section';
 import { ThemeToggle } from './ThemeToggle';
 import { Toast } from './ui/Toast';
@@ -40,8 +40,62 @@ function friendlyConnectError(err: unknown): string {
   return friendlyAuctionError(err);
 }
 
-function relativeTimeLabel(): string {
-  return 'Just now';
+function relativeTimeLabel(iso?: string): string {
+  if (!iso) return 'Just now';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return 'Just now';
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function eventToFeedItem(ev: ContractEvent): FeedItem | null {
+  const topics = ev.topics.map((t) => t.toLowerCase());
+  const action = topics.find((t) => ['created', 'bid', 'closed'].includes(t)) as
+    | FeedItem['kind']
+    | undefined;
+  if (!action) return null;
+
+  const idTopic = topics.find((t) => /^\d+$/.test(t));
+  const auctionId = idTopic != null ? Number(idTopic) : -1;
+
+  const message =
+    action === 'created'
+      ? `Auction #${auctionId} created`
+      : action === 'bid'
+        ? `New bid on auction #${auctionId}`
+        : `Auction #${auctionId} closed`;
+
+  const stableId =
+    ev.id ||
+    `${ev.ledger}-${ev.txHash || 'tx'}-${action}-${auctionId}-${ev.topics.join('.')}`;
+
+  return {
+    id: stableId,
+    kind: action,
+    auctionId,
+    message,
+    time: relativeTimeLabel(ev.ledgerClosedAt),
+  };
+}
+
+function eventsToFeedItems(events: ContractEvent[]): FeedItem[] {
+  const items: FeedItem[] = [];
+  const seen = new Set<string>();
+  // RPC usually returns oldest→newest; show newest first
+  for (const ev of [...events].reverse()) {
+    const item = eventToFeedItem(ev);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    items.push(item);
+  }
+  return items.slice(0, 40);
 }
 
 export default function AuctionApp() {
@@ -62,6 +116,7 @@ export default function AuctionApp() {
 
   const lastLedgerRef = useRef(0);
   const pollReadyRef = useRef(false);
+  const seenFeedIdsRef = useRef(new Set<string>());
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -102,75 +157,65 @@ export default function AuctionApp() {
     }
   }, []);
 
-  const pushFeed = useCallback((kind: FeedItem['kind'], auctionId: number, message: string) => {
-    const item: FeedItem = {
-      id: `${kind}-${auctionId}-${Date.now()}`,
-      kind,
-      auctionId,
-      message,
-      time: relativeTimeLabel(),
-    };
-    setFeed((prev) => [item, ...prev].slice(0, 40));
-  }, []);
-
   // Initial load + refresh when contract id is configured
   useEffect(() => {
     loadAuctions();
   }, [loadAuctions]);
 
-  // Real-time: poll contract events every 5s
+  // Real-time: backfill recent on-chain events, then poll every 5s
   useEffect(() => {
     let cancelled = false;
 
+    const applyLiveEvents = (events: ContractEvent[]) => {
+      const nextItems = eventsToFeedItems(events);
+      const fresh = nextItems.filter((i) => !seenFeedIdsRef.current.has(i.id));
+      if (fresh.length === 0) return false;
+
+      for (const item of fresh) seenFeedIdsRef.current.add(item.id);
+      setFeed((prev) => [...fresh, ...prev].slice(0, 40));
+
+      for (const item of fresh) {
+        if (item.kind === 'created') showToast(`New auction #${item.auctionId}`);
+        else if (item.kind === 'bid') showToast(`New bid on #${item.auctionId}`);
+        else if (item.kind === 'closed') showToast(`Auction #${item.auctionId} closed`);
+      }
+      return true;
+    };
+
     const tick = async () => {
       try {
-        const { events, latestLedger } = await getContractEvents(lastLedgerRef.current);
-        if (cancelled) return;
-
+        // First visit: backfill recent history into the feed (no toasts)
         if (lastLedgerRef.current === 0) {
-          // First poll: seed ledger cursor without flooding the feed
-          lastLedgerRef.current = latestLedger;
+          const { events, latestLedger } = await getContractEvents(0, {
+            lookback: EVENT_BACKFILL_LEDGERS,
+            limit: 50,
+          });
+          if (cancelled) return;
+
+          const backfilled = eventsToFeedItems(events);
+          seenFeedIdsRef.current = new Set(backfilled.map((i) => i.id));
+          setFeed(backfilled);
+
+          const maxLedger = events.reduce(
+            (m, e) => Math.max(m, e.ledger),
+            latestLedger
+          );
+          lastLedgerRef.current = maxLedger;
           pollReadyRef.current = true;
           return;
         }
 
-        lastLedgerRef.current = Math.max(lastLedgerRef.current, latestLedger);
+        const { events, latestLedger } = await getContractEvents(lastLedgerRef.current);
+        if (cancelled) return;
+
+        lastLedgerRef.current = Math.max(
+          lastLedgerRef.current,
+          events.reduce((m, e) => Math.max(m, e.ledger), latestLedger)
+        );
 
         if (!pollReadyRef.current || events.length === 0) return;
 
-        let shouldRefresh = false;
-        for (const ev of events) {
-          const topics = ev.topics.map((t) => t.toLowerCase());
-          const isAuction = topics.some((t) => t.includes('auction'));
-          if (!isAuction && topics.length < 2) continue;
-
-          const action = topics.find((t) =>
-            ['created', 'bid', 'closed'].includes(t)
-          );
-          const idTopic = topics.find((t) => /^\d+$/.test(t));
-          const auctionId = idTopic != null ? Number(idTopic) : -1;
-
-          if (action === 'created') {
-            pushFeed('created', auctionId, `Auction #${auctionId} created`);
-            showToast(`New auction #${auctionId}`);
-            shouldRefresh = true;
-          } else if (action === 'bid') {
-            pushFeed('bid', auctionId, `New bid on auction #${auctionId}`);
-            showToast(`New bid on #${auctionId}`);
-            shouldRefresh = true;
-          } else if (action === 'closed') {
-            pushFeed('closed', auctionId, `Auction #${auctionId} closed`);
-            showToast(`Auction #${auctionId} closed`);
-            shouldRefresh = true;
-          } else if (events.length > 0) {
-            shouldRefresh = true;
-          }
-
-          if (ev.ledger > lastLedgerRef.current) {
-            lastLedgerRef.current = ev.ledger;
-          }
-        }
-
+        const shouldRefresh = applyLiveEvents(events);
         if (shouldRefresh) {
           await loadAuctions();
           if (publicKey) loadBalance(publicKey);
@@ -186,7 +231,7 @@ export default function AuctionApp() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [loadAuctions, loadBalance, publicKey, pushFeed, showToast]);
+  }, [loadAuctions, loadBalance, publicKey, showToast]);
 
   const handleConnect = async () => {
     setConnecting(true);

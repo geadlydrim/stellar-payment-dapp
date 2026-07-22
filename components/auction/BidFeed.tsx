@@ -23,6 +23,7 @@ export function BidFeed({ items }: BidFeedProps) {
     return (
       <p className="text-[13px] text-[var(--qf-text-4)] py-2">
         Live activity will appear here as auctions are created, bid on, and closed.
+        Recent on-chain events load automatically when you open the page.
       </p>
     );
   }

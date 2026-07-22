@@ -57,28 +57,76 @@ async function pollTransaction(hash: string): Promise<{
 }> {
   for (let i = 0; i < 30; i++) {
     await sleep(1500);
-    const tx = await server.getTransaction(hash);
+    try {
+      const tx = await server.getTransaction(hash);
 
-    if (tx.status === rpc.Api.GetTransactionStatus.SUCCESS) {
-      let returnValue: unknown;
-      try {
-        if (tx.returnValue) {
-          returnValue = scValToNative(tx.returnValue);
+      if (tx.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+        let returnValue: unknown;
+        try {
+          if (tx.returnValue) {
+            returnValue = scValToNative(tx.returnValue);
+          }
+        } catch {
+          /* return value optional — tx already confirmed */
         }
-      } catch {
-        /* ignore decode errors */
+        return { status: 'success', returnValue };
       }
-      return { status: 'success', returnValue };
-    }
 
-    if (tx.status === rpc.Api.GetTransactionStatus.FAILED) {
-      return {
-        status: 'fail',
-        error: 'Transaction failed on-chain',
-      };
+      if (tx.status === rpc.Api.GetTransactionStatus.FAILED) {
+        return {
+          status: 'fail',
+          error: 'Transaction failed on-chain',
+        };
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Protocol meta the SDK can't decode — tx likely already landed; confirm via raw RPC
+      if (msg.includes('Bad union switch')) {
+        const raw = await fetchRawTxStatus(hash);
+        if (raw === 'SUCCESS') return { status: 'success' };
+        if (raw === 'FAILED') {
+          return { status: 'fail', error: 'Transaction failed on-chain' };
+        }
+        // NOT_FOUND / PENDING — keep polling
+        continue;
+      }
+      throw err;
     }
   }
   return { status: 'fail', error: 'Timed out waiting for confirmation' };
+}
+
+/** Status-only check that avoids XDR meta decode (Protocol 23 safety net). */
+async function fetchRawTxStatus(
+  hash: string
+): Promise<'SUCCESS' | 'FAILED' | 'NOT_FOUND' | 'PENDING' | null> {
+  try {
+    const res = await fetch(SOROBAN_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getTransaction',
+        params: { hash },
+      }),
+    });
+    const json = (await res.json()) as {
+      result?: { status?: string };
+    };
+    const status = json.result?.status;
+    if (
+      status === 'SUCCESS' ||
+      status === 'FAILED' ||
+      status === 'NOT_FOUND' ||
+      status === 'PENDING'
+    ) {
+      return status;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -162,18 +210,30 @@ export interface ContractEvent {
   topics: string[];
   value: unknown;
   txHash?: string;
+  ledgerClosedAt?: string;
+  /** Stable id from RPC when available */
+  id?: string;
 }
+
+/** How far back to scan on first load for the activity feed. */
+export const EVENT_BACKFILL_LEDGERS = 5_000;
 
 /**
  * Fetch contract events since a ledger (exclusive lower bound).
+ * Pass `sinceLedger = 0` (or omit lookback) with `lookback` to backfill recent history.
  */
 export async function getContractEvents(
-  sinceLedger: number
+  sinceLedger: number,
+  options?: { lookback?: number; limit?: number }
 ): Promise<{ events: ContractEvent[]; latestLedger: number }> {
   const contractId = getContractId();
 
   const latest = await server.getLatestLedger();
-  const startLedger = Math.max(sinceLedger + 1, latest.sequence - 10_000);
+  const lookback = options?.lookback ?? 10_000;
+  const startLedger =
+    sinceLedger <= 0
+      ? Math.max(1, latest.sequence - (options?.lookback ?? EVENT_BACKFILL_LEDGERS))
+      : Math.max(sinceLedger + 1, latest.sequence - lookback);
 
   if (startLedger > latest.sequence) {
     return { events: [], latestLedger: latest.sequence };
@@ -187,7 +247,7 @@ export async function getContractEvents(
         contractIds: [contractId],
       },
     ],
-    limit: 50,
+    limit: options?.limit ?? 50,
   });
 
   const events: ContractEvent[] = (response.events || []).map((ev) => {
@@ -212,11 +272,19 @@ export async function getContractEvents(
       value = null;
     }
 
+    const raw = ev as {
+      txHash?: string;
+      ledgerClosedAt?: string;
+      id?: string;
+    };
+
     return {
       ledger: Number(ev.ledger),
       topics,
       value,
-      txHash: (ev as { txHash?: string }).txHash,
+      txHash: raw.txHash,
+      ledgerClosedAt: raw.ledgerClosedAt,
+      id: raw.id,
     };
   });
 
