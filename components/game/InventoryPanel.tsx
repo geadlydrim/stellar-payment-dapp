@@ -11,6 +11,7 @@ import {
 } from '@/lib/game';
 import { StateBadge, TierDot } from './StateBadge';
 import { ItemDetailModal } from './ItemDetailModal';
+import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
 interface InventoryPanelProps {
   items: Item[];
@@ -87,29 +88,52 @@ export function InventoryPanel({
                     opacity: usable ? 1 : 0.72,
                   }}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--qf-text-1)] truncate">
-                      {weapon && <TierDot tier={weapon.tier} />}
-                      {item.meta.name}
-                    </span>
-                    <StateBadge state={item.state} />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-[var(--qf-text-4)]">
-                    <span className="capitalize">
-                      {weapon
-                        ? `${weapon.damage} dmg`
-                        : charm
-                          ? 'Consumable'
-                          : item.meta.kind}
-                    </span>
-                    {isEquipped && (
-                      <span style={{ color: accent }} className="font-semibold">
-                        Equipped
-                      </span>
-                    )}
-                    {!usable && (
-                      <span className="text-[var(--qf-text-4)]">Unusable</span>
-                    )}
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className="rounded-md flex items-center justify-center flex-shrink-0"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        background: 'var(--qf-input-bg)',
+                        border: `1px solid ${accent}44`,
+                      }}
+                    >
+                      {weapon ? (
+                        <WeaponPixelIcon
+                          weaponType={weapon.weaponType}
+                          tier={weapon.tier}
+                          size={36}
+                        />
+                      ) : charm ? (
+                        <CharmPixelIcon size={36} />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--qf-text-1)] truncate">
+                          {weapon && <TierDot tier={weapon.tier} />}
+                          {item.meta.name}
+                        </span>
+                        <StateBadge state={item.state} />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-[var(--qf-text-4)]">
+                        <span className="capitalize">
+                          {weapon
+                            ? `${weapon.damage} dmg`
+                            : charm
+                              ? 'Consumable'
+                              : item.meta.kind}
+                        </span>
+                        {isEquipped && (
+                          <span style={{ color: accent }} className="font-semibold">
+                            Equipped
+                          </span>
+                        )}
+                        {!usable && (
+                          <span className="text-[var(--qf-text-4)]">Unusable</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </button>
               </li>

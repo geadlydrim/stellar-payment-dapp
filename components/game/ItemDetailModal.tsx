@@ -13,6 +13,7 @@ import {
   GameActionError,
 } from '@/lib/game';
 import { StateBadge, TierDot } from './StateBadge';
+import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
 interface ItemDetailModalProps {
   item: Item;
@@ -92,17 +93,38 @@ export function ItemDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              {weapon && <TierDot tier={weapon.tier} />}
-              <h3
-                className="text-lg font-semibold text-[var(--qf-text-1)]"
-                style={{ fontFamily: 'var(--font-poppins), sans-serif' }}
-              >
-                {item.meta.name}
-              </h3>
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className="rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{
+                width: 56,
+                height: 56,
+                background: 'var(--qf-input-bg)',
+                border: `1px solid ${tierColor}55`,
+              }}
+            >
+              {weapon ? (
+                <WeaponPixelIcon
+                  weaponType={weapon.weaponType}
+                  tier={weapon.tier}
+                  size={48}
+                />
+              ) : charm ? (
+                <CharmPixelIcon size={48} />
+              ) : null}
             </div>
-            <StateBadge state={item.state} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                {weapon && <TierDot tier={weapon.tier} />}
+                <h3
+                  className="text-lg font-semibold text-[var(--qf-text-1)] truncate"
+                  style={{ fontFamily: 'var(--font-poppins), sans-serif' }}
+                >
+                  {item.meta.name}
+                </h3>
+              </div>
+              <StateBadge state={item.state} />
+            </div>
           </div>
           <button
             type="button"
