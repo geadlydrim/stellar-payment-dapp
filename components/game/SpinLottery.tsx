@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Item } from '@/lib/registry';
 import {
   REEL_SLOTS,
@@ -25,7 +25,15 @@ const STRIDE = CELL_W + GAP;
 /** Extra full reel loops before landing. */
 const MIN_LOOPS = 5;
 const SPIN_MS = 3200;
-const STRIP_COPIES = 18;
+/**
+ * How many full reel repeats we render. Spins re-home to HOME_COPY after
+ * each land so the strip never runs out of cells.
+ */
+const STRIP_COPIES = 14;
+/** Copy index we snap back to after each spin (same slot, middle of strip). */
+const HOME_COPY = 2;
+/** Extra filler repeats drawn beyond STRIP_COPIES for edge safety. */
+const FILLER_COPIES = 2;
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
@@ -37,16 +45,22 @@ function translateForIndex(absoluteIndex: number, viewW: number): number {
   return centerPad - absoluteIndex * STRIDE;
 }
 
+function homeIndexForSlot(slotIndex: number): number {
+  const N = REEL_SLOTS.length;
+  return HOME_COPY * N + slotIndex;
+}
+
 export function SpinLottery({ onSpun }: SpinLotteryProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewW, setViewW] = useState(280);
   const [spinning, setSpinning] = useState(false);
   const [translateX, setTranslateX] = useState(0);
-  /** Absolute strip index currently under the pointer (grows each spin). */
-  const absIndexRef = useRef(0);
+  /** Absolute strip index currently under the pointer. */
+  const absIndexRef = useRef(homeIndexForSlot(0));
+  /** Absolute index of the winning cell (for highlight); null while spinning. */
+  const [winnerAbs, setWinnerAbs] = useState<number | null>(null);
   const [result, setResult] = useState<SpinResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<number | null>(null);
 
   // Measure viewport; keep pointer-aligned when size changes.
   useEffect(() => {
@@ -67,17 +81,26 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
     if (spinning) return;
     setError(null);
     setResult(null);
-    setHighlight(null);
+    setWinnerAbs(null);
     setSpinning(true);
 
-    // Pre-roll so the award matches where the pointer stops.
+    const N = REEL_SLOTS.length;
     const rolled = rollSpin();
     const targetSlot = reelIndexForResult(rolled);
-    const N = REEL_SLOTS.length;
-    const from = absIndexRef.current;
+
+    // Always start from a home band copy so travel stays within the strip.
+    let from = absIndexRef.current;
     const fromSlot = ((from % N) + N) % N;
+    const maxTravel = (MIN_LOOPS + 2) * N + N;
+    const stripLen = STRIP_COPIES * N;
+    if (from + maxTravel >= stripLen - N) {
+      from = homeIndexForSlot(fromSlot);
+      absIndexRef.current = from;
+      setTranslateX(translateForIndex(from, viewW));
+    }
+
     let delta = (targetSlot - fromSlot + N) % N;
-    if (delta === 0) delta = N; // always travel at least one full reel
+    if (delta === 0) delta = N;
     const loops = MIN_LOOPS + Math.floor(Math.random() * 2);
     const to = from + loops * N + delta;
 
@@ -95,9 +118,12 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
         return;
       }
 
-      absIndexRef.current = to;
-      setTranslateX(endX);
-      setHighlight(targetSlot);
+      // Snap to home copy of the same slot — identical under the pointer,
+      // but resets the strip so the next spin has filler ahead again.
+      const home = homeIndexForSlot(targetSlot);
+      absIndexRef.current = home;
+      setTranslateX(translateForIndex(home, viewW));
+      setWinnerAbs(home);
 
       try {
         const { result: spun, item } = spinAndAdd(undefined, rolled);
@@ -112,7 +138,11 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
     return () => cancelAnimationFrame(raf);
   }, [spinning, viewW, onSpun]);
 
-  const strip = Array.from({ length: STRIP_COPIES }, () => REEL_SLOTS).flat();
+  // Real slots + trailing filler copies (same pattern) so edges never look empty.
+  const strip = useMemo(() => {
+    const copies = STRIP_COPIES + FILLER_COPIES;
+    return Array.from({ length: copies }, () => REEL_SLOTS).flat();
+  }, []);
 
   return (
     <div
@@ -190,8 +220,8 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
           style={{ transform: `translate3d(${translateX}px, 0, 0)` }}
         >
           {strip.map((slot, i) => {
-            const isWinner =
-              !spinning && highlight !== null && i === absIndexRef.current;
+            const isWinner = !spinning && winnerAbs !== null && i === winnerAbs;
+            const isFiller = i >= STRIP_COPIES * REEL_SLOTS.length;
 
             return (
               <div
@@ -201,13 +231,15 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
                   width: CELL_W,
                   height: 56,
                   marginRight: GAP,
-                  background: `${slot.color}${isWinner ? '33' : '18'}`,
+                  background: `${slot.color}${isWinner ? '33' : isFiller ? '10' : '18'}`,
                   color: slot.color,
-                  border: `2px solid ${slot.color}${isWinner ? 'cc' : '66'}`,
+                  border: `2px solid ${slot.color}${isWinner ? 'cc' : isFiller ? '33' : '66'}`,
                   boxShadow: isWinner ? `0 0 12px ${slot.color}66` : undefined,
                   transform: isWinner ? 'scale(1.04)' : undefined,
                   transition: 'box-shadow 0.2s, transform 0.2s',
+                  opacity: isFiller && !isWinner ? 0.85 : 1,
                 }}
+                aria-hidden={isFiller || undefined}
               >
                 <span className="text-[11px] font-bold leading-tight">
                   {slot.label}
