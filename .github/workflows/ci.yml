@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build must not require live contract IDs; Marketplace defaults to mocks.
+          NEXT_PUBLIC_MARKET_ADAPTER: mock
+
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts -> target
+
+      - name: Unit tests
+        run: cargo test
+        # If a future `cargo update` pulls ed25519-dalek 3.x and breaks
+        # soroban-sdk 22 testutils, re-pin per contracts/README.md:
+        #   cargo update -p ed25519-dalek@3.0.0 --precise 2.2.0

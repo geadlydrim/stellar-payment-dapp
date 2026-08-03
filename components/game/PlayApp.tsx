@@ -9,7 +9,7 @@ import {
   getEquippedWeapon,
   getActiveBuff,
   equipWeapon,
-  useCharm,
+  useCharm as applyCharm,
   computeDamage,
   GameActionError,
   type SpinResult,
@@ -104,7 +104,7 @@ export function PlayApp() {
 
   const handleUseCharm = (id: string) => {
     try {
-      const { buff } = useCharm(id);
+      const { buff } = applyCharm(id);
       reload();
       const secs = Math.max(1, Math.round((buff.expiresAt - Date.now()) / 1000));
       showToast(`Power Charm active ×${buff.multiplier} for ${secs}s`);
