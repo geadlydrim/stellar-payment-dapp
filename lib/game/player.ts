@@ -220,8 +220,8 @@ export function listVisibleInventory(ownerId: string = PLAYER_OWNER_ID): Item[] 
 }
 
 /**
- * Export stub step 1: lock for trade (pre-mint).
- * Integration will call NftBridge.exportToNft → markAsNft later.
+ * Lock only (LockedForTrade). Prefer NftBridge.exportToNft for full export;
+ * kept for cancel/resume flows that stop mid-export.
  */
 export function requestExportLock(
   itemId: ItemId,
@@ -245,15 +245,12 @@ export function cancelExportLock(
   return getGameRegistry().unlock(itemId, ownerId);
 }
 
-/**
- * Hook point for Integration: after mint, call registry.markAsNft.
- * Game intentionally does not call this — stub UI stops at lock.
- */
-export type ExportHook = (itemId: ItemId, ownerId: string) => Promise<{ tokenId: string }>;
+/** Optional injectables (tests / alternate bridges). UI uses getMockMarketPorts by default. */
+export type ExportHook = (
+  itemId: ItemId,
+  ownerId: string
+) => Promise<{ tokenId: string }>;
 
-/**
- * Hook point for Integration: import NFT back to InGame.
- */
 export type ImportHook = (
   tokenId: string,
   ownerId: string

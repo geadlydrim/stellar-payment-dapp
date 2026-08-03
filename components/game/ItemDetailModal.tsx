@@ -4,14 +4,19 @@ import { useState } from 'react';
 import { isUsable, type Item } from '@/lib/registry';
 import {
   TIER_COLORS,
+  PLAYER_OWNER_ID,
   cancelExportLock,
-  requestExportLock,
+  getGameRegistry,
   parseWeaponAttrs,
   parseCharmAttrs,
   isWeaponItem,
   isCharmItem,
   GameActionError,
+  unequip,
+  getEquippedItemId,
 } from '@/lib/game';
+import { getMockMarketPorts } from '@/lib/adapters/mock';
+import { PortError } from '@/lib/adapters/mock/helpers';
 import { StateBadge, TierDot } from './StateBadge';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
@@ -34,6 +39,7 @@ export function ItemDetailModal({
 }: ItemDetailModalProps) {
   const [showMintForm, setShowMintForm] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(item.meta.name);
   const [notes, setNotes] = useState('');
@@ -47,17 +53,19 @@ export function ItemDetailModal({
     : null;
   const tierColor = weapon ? TIER_COLORS[weapon.tier] : '#f472b6';
 
-  const handleConfirmExport = () => {
+  const handleConfirmExport = async () => {
     setError(null);
     setConfirming(true);
     try {
-      requestExportLock(item.id);
+      if (getEquippedItemId() === item.id) unequip();
+      const { nftBridge } = getMockMarketPorts(getGameRegistry());
+      await nftBridge.exportToNft(item.id, PLAYER_OWNER_ID);
       setShowMintForm(false);
       onChanged();
       onClose();
     } catch (e) {
       setError(
-        e instanceof GameActionError
+        e instanceof GameActionError || e instanceof PortError
           ? e.message
           : e instanceof Error
             ? e.message
@@ -76,6 +84,26 @@ export function ItemDetailModal({
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unlock failed');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!item.tokenId) return;
+    setError(null);
+    setImporting(true);
+    try {
+      const { nftBridge } = getMockMarketPorts(getGameRegistry());
+      await nftBridge.importFromNft(item.tokenId, PLAYER_OWNER_ID);
+      onChanged();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof PortError || e instanceof Error
+          ? e.message
+          : 'Import failed'
+      );
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -292,24 +320,29 @@ export function ItemDetailModal({
               </button>
             )}
 
-            {/* Integration hook: wire NftBridge.importFromNft */}
-            <button
-              type="button"
-              disabled
-              title="Integration will wire Import via NftBridge"
-              className="py-2 rounded-lg text-sm font-medium cursor-not-allowed opacity-45 border border-dashed border-[var(--qf-card-border)] bg-transparent text-[var(--qf-text-3)]"
-              data-hook="import-from-nft"
-            >
-              Import from NFT (soon)
-            </button>
+            {item.state === 'AsNft' && item.tokenId && (
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void handleImport()}
+                title="Redeem NFT back to InGame (cancel marketplace listing first if listed)"
+                className="py-2 rounded-lg text-sm font-semibold cursor-pointer border border-[var(--qf-card-border)] bg-[var(--qf-card-bg-soft)] text-[var(--qf-text-1)] disabled:opacity-45"
+                data-hook="import-from-nft"
+              >
+                {importing ? 'Importing…' : 'Import from NFT'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--qf-text-2)]">
-              Review details before locking for mint. On-chain mint is wired later
-              by Integration — confirming will lock the item (
-              <code className="text-xs">LockedForTrade</code>) so it cannot be used
-              in-game.
+              Export locks the item, mints a mock NFT token id, and marks it{' '}
+              <code className="text-xs">AsNft</code>. It cannot be used in-game
+              until imported. List it on{' '}
+              <a href="/market" className="underline text-[var(--qf-text-1)]">
+                Marketplace
+              </a>
+              .
             </p>
 
             <label className="block text-xs text-[var(--qf-text-3)]">
@@ -338,11 +371,11 @@ export function ItemDetailModal({
             >
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Network</span>
-                <span className="text-[var(--qf-text-2)]">Stellar Testnet (mock)</span>
+                <span className="text-[var(--qf-text-2)]">Mock NftBridge</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Est. fee</span>
-                <span className="text-[var(--qf-text-2)]">— (backend later)</span>
+                <span className="text-[var(--qf-text-2)]">— (Soroban later)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Kind / attrs</span>
@@ -364,7 +397,7 @@ export function ItemDetailModal({
               <button
                 type="button"
                 disabled={confirming || !displayName.trim()}
-                onClick={handleConfirmExport}
+                onClick={() => void handleConfirmExport()}
                 data-hook="export-to-nft-confirm"
                 className="flex-1 py-2 rounded-lg text-sm font-semibold border-none cursor-pointer disabled:opacity-50"
                 style={{
@@ -373,7 +406,7 @@ export function ItemDetailModal({
                   color: 'var(--qf-accent-ink)',
                 }}
               >
-                {confirming ? 'Locking…' : 'Confirm lock'}
+                {confirming ? 'Exporting…' : 'Export to NFT'}
               </button>
             </div>
           </div>

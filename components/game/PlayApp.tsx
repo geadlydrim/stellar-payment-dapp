@@ -166,6 +166,12 @@ export function PlayApp() {
                 Buff {buffSecondsLeft}s
               </span>
             )}
+            <a
+              href="/market"
+              className="text-xs font-medium text-[var(--qf-text-2)] no-underline hover:text-[var(--qf-text-1)]"
+            >
+              Market
+            </a>
             <ThemeToggle />
           </div>
         </div>
