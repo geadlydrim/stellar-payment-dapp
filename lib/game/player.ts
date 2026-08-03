@@ -245,7 +245,7 @@ export function cancelExportLock(
   return getGameRegistry().unlock(itemId, ownerId);
 }
 
-/** Optional injectables (tests / alternate bridges). UI uses getMockMarketPorts by default. */
+/** Optional injectables (tests / alternate bridges). UI uses getMarketPorts composition root. */
 export type ExportHook = (
   itemId: ItemId,
   ownerId: string

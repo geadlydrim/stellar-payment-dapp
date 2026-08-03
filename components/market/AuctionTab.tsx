@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { AuctionListing, AuctionPort } from '@/lib/ports';
-import { PortError } from '@/lib/adapters/mock/helpers';
-import { MockAuctionPort } from '@/lib/adapters/mock/auction';
+import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import { formatEnd, itemForToken, listableForOwner } from './market-utils';
 
@@ -12,6 +11,7 @@ interface AuctionTabProps {
   registry: ItemRegistry;
   port: AuctionPort;
   ownerId: string;
+  actorId: string;
   demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
@@ -22,6 +22,7 @@ export function AuctionTab({
   registry,
   port,
   ownerId,
+  actorId,
   demoBuyerId,
   onToast,
   refreshKey,
@@ -37,8 +38,11 @@ export function AuctionTab({
   const listable = listableForOwner(registry, ownerId);
 
   const reload = useCallback(async () => {
-    if (port instanceof MockAuctionPort) {
-      setAuctions(await port.listAll());
+    const withAll = port as AuctionPort & {
+      listAll?: () => Promise<AuctionListing[]>;
+    };
+    if (typeof withAll.listAll === 'function') {
+      setAuctions(await withAll.listAll());
     } else {
       setAuctions((await port.listActive?.()) ?? []);
     }
@@ -112,7 +116,7 @@ export function AuctionTab({
               run(async () => {
                 await port.listNftAuction({
                   tokenId,
-                  seller: ownerId,
+                  seller: actorId,
                   startPriceXlm: startPrice,
                   durationSec: Number(durationSec) || 300,
                 });
@@ -143,7 +147,7 @@ export function AuctionTab({
         )}
         {auctions.map((auction) => {
           const item = itemForToken(registry, auction.tokenId);
-          const mine = auction.seller === ownerId;
+          const mine = auction.seller === actorId;
           const ended = Date.now() >= auction.endTime;
           const key = String(auction.auctionId);
           const bidVal =
@@ -203,7 +207,7 @@ export function AuctionTab({
                           () =>
                             port.placeBid!({
                               auctionId: auction.auctionId,
-                              bidder: ownerId,
+                              bidder: actorId,
                               amountXlm: bidVal,
                             }),
                           'Bid placed'
@@ -251,7 +255,7 @@ export function AuctionTab({
                         () =>
                           port.close!({
                             auctionId: auction.auctionId,
-                            caller: ownerId,
+                            caller: actorId,
                           }),
                         auction.highestBidder
                           ? `Closed — winner ${auction.highestBidder}`

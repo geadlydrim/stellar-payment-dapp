@@ -130,14 +130,14 @@ async function fetchRawTxStatus(
 }
 
 /**
- * Build, simulate, sign, submit, and poll a contract call.
+ * Build, simulate, sign, submit, and poll a call against any contract.
  */
-export async function invoke(
+export async function invokeContract(
+  contractId: string,
   method: string,
   args: xdr.ScVal[],
   caller: string
 ): Promise<InvokeResult> {
-  const contractId = getContractId();
   const contract = new Contract(contractId);
   const account = await loadAccount(caller);
 
@@ -171,13 +171,24 @@ export async function invoke(
 }
 
 /**
- * Simulate-only view call (no wallet signature).
+ * Build, simulate, sign, submit, and poll a contract call (legacy auction ID).
  */
-export async function readView(
+export async function invoke(
+  method: string,
+  args: xdr.ScVal[],
+  caller: string
+): Promise<InvokeResult> {
+  return invokeContract(getContractId(), method, args, caller);
+}
+
+/**
+ * Simulate-only view call against any contract (no wallet signature).
+ */
+export async function readContractView(
+  contractId: string,
   method: string,
   args: xdr.ScVal[] = []
 ): Promise<unknown> {
-  const contractId = getContractId();
   const contract = new Contract(contractId);
 
   // Dummy source for simulation; views don't need real auth
@@ -203,6 +214,16 @@ export async function readView(
     return scValToNative(sim.result.retval);
   }
   return null;
+}
+
+/**
+ * Simulate-only view call (legacy auction ID).
+ */
+export async function readView(
+  method: string,
+  args: xdr.ScVal[] = []
+): Promise<unknown> {
+  return readContractView(getContractId(), method, args);
 }
 
 export interface ContractEvent {
