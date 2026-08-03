@@ -1,8 +1,15 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env, String,
-    Symbol, Vec,
+    contract, contractclient, contracterror, contractimpl, contracttype, symbol_short, token,
+    Address, Env, String, Symbol, Vec,
 };
+
+/// Minimal NFT client for inter-contract settlement (matches item-nft ABI).
+#[contractclient(name = "ItemNftClient")]
+pub trait ItemNftInterface {
+    fn transfer(env: Env, from: Address, to: Address, token_id: u32);
+    fn owner_of(env: Env, token_id: u32) -> Address;
+}
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -17,6 +24,7 @@ pub enum AuctionError {
     NotEnded = 7,
     AlreadySettled = 8,
     InvalidAmount = 9,
+    NotNftOwner = 10,
 }
 
 #[contracttype]
@@ -31,6 +39,9 @@ pub struct AuctionData {
     pub highest_bid: i128,
     pub highest_bidder: Option<Address>,
     pub settled: bool,
+    /// When set, NFT is escrowed in this contract until close.
+    pub nft_contract: Option<Address>,
+    pub token_id: Option<u32>,
 }
 
 #[contracttype]
@@ -58,6 +69,7 @@ impl AuctionContract {
         Ok(())
     }
 
+    /// Legacy description-only auction (XLM escrow only). Still supported.
     pub fn create_auction(
         env: Env,
         seller: Address,
@@ -73,7 +85,7 @@ impl AuctionContract {
             return Err(AuctionError::InvalidAmount);
         }
 
-        let id: u32 = env.storage().instance().get(&DataKey::Count).unwrap_or(0);
+        let id = Self::next_id(&env);
         let end_time = env.ledger().timestamp() + duration;
 
         let auction = AuctionData {
@@ -86,19 +98,66 @@ impl AuctionContract {
             highest_bid: 0,
             highest_bidder: None,
             settled: false,
+            nft_contract: None,
+            token_id: None,
         };
 
-        env.storage()
-            .persistent()
-            .set(&DataKey::Auction(id), &auction);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::Auction(id), 100_000, 100_000);
-        env.storage().instance().set(&DataKey::Count, &(id + 1));
-        env.storage().instance().extend_ttl(100_000, 100_000);
-
+        Self::store_auction(&env, &auction);
         env.events()
             .publish((EVENT_TOPIC, symbol_short!("created"), id), seller);
+
+        Ok(id)
+    }
+
+    /// NFT auction (`AuctionPort.listNftAuction`). Escrows NFT into this contract.
+    pub fn create_nft_auction(
+        env: Env,
+        seller: Address,
+        nft_contract: Address,
+        token_id: u32,
+        start_price: i128,
+        duration: u64,
+    ) -> Result<u32, AuctionError> {
+        seller.require_auth();
+        Self::require_initialized(&env)?;
+
+        if start_price < 0 || duration == 0 {
+            return Err(AuctionError::InvalidAmount);
+        }
+
+        let nft = ItemNftClient::new(&env, &nft_contract);
+        let owner = nft.owner_of(&token_id);
+        if owner != seller {
+            return Err(AuctionError::NotNftOwner);
+        }
+
+        let contract_addr = env.current_contract_address();
+        nft.transfer(&seller, &contract_addr, &token_id);
+
+        let id = Self::next_id(&env);
+        let end_time = env.ledger().timestamp() + duration;
+        let item = String::from_str(&env, "nft");
+        let description = String::from_str(&env, "nft-auction");
+
+        let auction = AuctionData {
+            id,
+            seller: seller.clone(),
+            item,
+            description,
+            start_price,
+            end_time,
+            highest_bid: 0,
+            highest_bidder: None,
+            settled: false,
+            nft_contract: Some(nft_contract),
+            token_id: Some(token_id),
+        };
+
+        Self::store_auction(&env, &auction);
+        env.events().publish(
+            (EVENT_TOPIC, symbol_short!("created"), id),
+            (seller, token_id),
+        );
 
         Ok(id)
     }
@@ -134,10 +193,8 @@ impl AuctionContract {
         let client = token::Client::new(&env, &token_addr);
         let contract_addr = env.current_contract_address();
 
-        // Escrow the new bid
         client.transfer(&bidder, &contract_addr, &amount);
 
-        // Refund previous highest bidder
         if let Some(prev) = auction.highest_bidder.clone() {
             let prev_amount = auction.highest_bid;
             if prev_amount > 0 {
@@ -148,12 +205,7 @@ impl AuctionContract {
         auction.highest_bid = amount;
         auction.highest_bidder = Some(bidder.clone());
 
-        env.storage()
-            .persistent()
-            .set(&DataKey::Auction(id), &auction);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::Auction(id), 100_000, 100_000);
+        Self::store_auction(&env, &auction);
 
         env.events()
             .publish((EVENT_TOPIC, symbol_short!("bid"), id), (bidder, amount));
@@ -161,6 +213,7 @@ impl AuctionContract {
         Ok(())
     }
 
+    /// After end_time: pay seller XLM; if NFT auction, transfer NFT to winner (or back to seller).
     pub fn close(env: Env, id: u32) -> Result<(), AuctionError> {
         let token_addr = Self::require_initialized(&env)?;
         let mut auction = Self::load_auction(&env, id)?;
@@ -173,30 +226,43 @@ impl AuctionContract {
         }
 
         auction.settled = true;
+        let contract_addr = env.current_contract_address();
 
         if let Some(winner) = auction.highest_bidder.clone() {
             let client = token::Client::new(&env, &token_addr);
-            let contract_addr = env.current_contract_address();
             let payout = auction.highest_bid;
             if payout > 0 {
                 client.transfer(&contract_addr, &auction.seller, &payout);
             }
-            env.events().publish(
-                (EVENT_TOPIC, symbol_short!("closed"), id),
-                (winner, payout),
-            );
+
+            if let (Some(nft_addr), Some(tid)) =
+                (auction.nft_contract.clone(), auction.token_id)
+            {
+                let nft = ItemNftClient::new(&env, &nft_addr);
+                nft.transfer(&contract_addr, &winner, &tid);
+                env.events().publish(
+                    (EVENT_TOPIC, symbol_short!("closed"), id),
+                    (winner, payout, tid),
+                );
+            } else {
+                env.events().publish(
+                    (EVENT_TOPIC, symbol_short!("closed"), id),
+                    (winner, payout),
+                );
+            }
         } else {
+            // No bids: return NFT to seller if escrowed
+            if let (Some(nft_addr), Some(tid)) =
+                (auction.nft_contract.clone(), auction.token_id)
+            {
+                let nft = ItemNftClient::new(&env, &nft_addr);
+                nft.transfer(&contract_addr, &auction.seller, &tid);
+            }
             env.events()
                 .publish((EVENT_TOPIC, symbol_short!("closed"), id), ());
         }
 
-        env.storage()
-            .persistent()
-            .set(&DataKey::Auction(id), &auction);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::Auction(id), 100_000, 100_000);
-
+        Self::store_auction(&env, &auction);
         Ok(())
     }
 
@@ -217,6 +283,22 @@ impl AuctionContract {
             }
         }
         out
+    }
+
+    fn next_id(env: &Env) -> u32 {
+        let id: u32 = env.storage().instance().get(&DataKey::Count).unwrap_or(0);
+        env.storage().instance().set(&DataKey::Count, &(id + 1));
+        env.storage().instance().extend_ttl(100_000, 100_000);
+        id
+    }
+
+    fn store_auction(env: &Env, auction: &AuctionData) {
+        env.storage()
+            .persistent()
+            .set(&DataKey::Auction(auction.id), auction);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Auction(auction.id), 100_000, 100_000);
     }
 
     fn require_initialized(env: &Env) -> Result<Address, AuctionError> {

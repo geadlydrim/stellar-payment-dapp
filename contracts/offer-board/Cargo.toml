@@ -1,13 +1,13 @@
 [package]
-name = "auction"
+name = "offer-board"
 version = "0.1.0"
 edition = "2021"
-description = "Multi-auction escrow contract for BidDrift on Stellar/Soroban"
+description = "Stellar4 Marketplace offer-board trade — accept/reject with XLM and/or NFT offers"
 license = "MIT"
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]

@@ -1,120 +1,87 @@
 # Auction Contract — Deploy Guide
 
-Multi-auction escrow contract for BidDrift. Bids transfer native XLM into the contract; outbid bidders are refunded; the seller is paid on close.
+Multi-auction XLM escrow for Stellar4 Marketplace **Auction** tab (`AuctionPort`).
+
+- **Legacy:** `create_auction` — description-only listing; XLM escrow only (unchanged behavior).
+- **NFT:** `create_nft_auction` — escrows an `item-nft` token; on `close`, NFT transfers to the winner (or back to seller if no bids).
 
 Amounts are **stroops** (`i128`). `1 XLM = 10_000_000` stroops.
 
+## Migration (existing XLM deployments)
+
+| Change | Impact |
+|--------|--------|
+| `AuctionData` adds `nft_contract: Option<Address>`, `token_id: Option<u32>` | **Storage layout change** — redeploy; do not reuse an old contract ID for NFT auctions |
+| `create_auction(...)` | Still works on the new WASM (sets NFT fields to `None`) |
+| `create_nft_auction(...)` | New; requires deployed `item-nft` |
+| `close` event data | NFT closes may include `token_id` in data; legacy closes unchanged |
+| Frontend `.env` | Point `NEXT_PUBLIC_AUCTION_CONTRACT_ID` at the **new** deploy after NFT settle ships |
+
+Old testnet contracts remain valid for legacy BidDrift UI until cut over. Marketplace `AuctionPort` should use the redeployed ID.
+
 ## Prerequisites
 
-### 1. Install Rust
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-rustup target add wasm32-unknown-unknown
-```
-
-### 2. Install Stellar CLI
-
-```bash
-# Linux / macOS
-curl -sSf https://raw.githubusercontent.com/stellar/stellar-cli/main/install.sh | sh
-
-# Or via cargo
-cargo install --locked stellar-cli --features opt
-
-stellar --version
-```
-
-### 3. Configure a testnet identity
-
-```bash
-stellar keys generate alice --network testnet --fund
-stellar keys address alice
-```
+Same as before: Rust (`wasm32v1-none` / `wasm32-unknown-unknown`), Stellar CLI, funded testnet identity.
 
 ## Build
 
-From the **repo root**:
+From **contracts workspace** or this crate:
 
 ```bash
 cd contracts/auction
 stellar contract build
+# WASM: target/wasm32v1-none/release/auction.wasm  (path may vary by CLI)
 ```
 
-The WASM lands at:
+## Test
 
+```bash
+cd contracts
+cargo test -p auction
 ```
-target/wasm32-unknown-unknown/release/auction.wasm
-```
-
-(If you build with `cargo build --target wasm32-unknown-unknown --release` from this crate, the path may be under `contracts/auction/target/...` instead.)
 
 ## Deploy to testnet
 
 ```bash
-# From contracts/auction (or pass the absolute WASM path)
 stellar contract deploy \
   --wasm target/wasm32v1-none/release/auction.wasm \
   --source alice \
   --network testnet
-```
+# → AUCTION_CONTRACT_ID=C...
 
-Copy the printed **contract ID** (starts with `C`).
+NATIVE_SAC=$(stellar contract id asset --asset native --network testnet)
 
-## Get the native SAC address
-
-```bash
-stellar contract id asset --asset native --network testnet
-```
-
-This is the Stellar Asset Contract address for native XLM on testnet.
-
-## Initialize the contract
-
-```bash
 stellar contract invoke \
-  --id <AUCTION_CONTRACT_ID> \
+  --id $AUCTION_CONTRACT_ID \
   --source alice \
   --network testnet \
   -- \
   initialize \
-  --token <NATIVE_SAC_ADDRESS>
+  --token $NATIVE_SAC
 ```
 
-## Wire the frontend
-
-Create `.env.local` in the repo root:
+Wire frontend:
 
 ```bash
 NEXT_PUBLIC_AUCTION_CONTRACT_ID=C...your_deployed_id...
+NEXT_PUBLIC_ITEM_NFT_CONTRACT_ID=C...item_nft_id...
 ```
 
-Restart `npm run dev` after changing env vars.
-
-## Quick smoke test (optional)
+## NFT auction smoke
 
 ```bash
-# Create an auction (start_price = 1 XLM = 10000000 stroops, duration = 3600s)
+# After item-nft is deployed, minted to seller, and seller is ready:
 stellar contract invoke \
-  --id <AUCTION_CONTRACT_ID> \
+  --id $AUCTION_CONTRACT_ID \
   --source alice \
   --network testnet \
   -- \
-  create_auction \
+  create_nft_auction \
   --seller $(stellar keys address alice) \
-  --item "Vintage Watch" \
-  --description "A classic piece" \
+  --nft_contract $ITEM_NFT_CONTRACT_ID \
+  --token_id 0 \
   --start_price 10000000 \
   --duration 3600
-
-# List auctions
-stellar contract invoke \
-  --id <AUCTION_CONTRACT_ID> \
-  --source alice \
-  --network testnet \
-  -- \
-  list_auctions
 ```
 
 ## Contract API
@@ -122,26 +89,24 @@ stellar contract invoke \
 | Function | Auth | Description |
 |----------|------|-------------|
 | `initialize(token)` | none | Set native SAC once |
-| `create_auction(seller, item, description, start_price, duration)` | seller | Create auction, returns `id` |
+| `create_auction(seller, item, description, start_price, duration)` | seller | Legacy XLM-only auction |
+| `create_nft_auction(seller, nft_contract, token_id, start_price, duration)` | seller | Escrow NFT + create |
 | `bid(id, bidder, amount)` | bidder | Escrow bid, refund previous |
-| `close(id)` | none | After `end_time`, pay seller |
+| `close(id)` | none | Pay seller; transfer NFT if present |
 | `get_auction(id)` | view | Single auction |
 | `list_auctions()` | view | All auctions |
 
-### Errors (`#[contracterror]`)
+### Errors
 
 | Code | Name | Meaning |
 |------|------|---------|
-| 1 | NotInitialized | Call `initialize` first |
-| 2 | AlreadyInitialized | Token already set |
-| 3 | AuctionNotFound | Bad id |
-| 4 | AuctionEnded | Bidding closed |
-| 5 | BidTooLow | Must beat current / meet start |
-| 6 | SelfBid | Seller cannot bid |
-| 7 | NotEnded | Too early to close |
-| 8 | AlreadySettled | Already closed |
-| 9 | InvalidAmount | Non-positive amount / duration |
+| 1–9 | (unchanged) | Same as legacy auction |
+| 10 | NotNftOwner | Seller does not own NFT at list time |
 
 ### Events
 
 Topics: `("auction", "created"|"bid"|"closed", id)`.
+
+- `created` data: `seller` (legacy) or `(seller, token_id)` (NFT)
+- `bid` data: `(bidder, amount)`
+- `closed` data: `(winner, payout)` / `(winner, payout, token_id)` / `()` if no bids

@@ -1,13 +1,13 @@
 [package]
-name = "auction"
+name = "item-nft"
 version = "0.1.0"
 edition = "2021"
-description = "Multi-auction escrow contract for BidDrift on Stellar/Soroban"
+description = "Stellar4 item NFT — mint/burn/transfer for Marketplace settlement"
 license = "MIT"
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]
@@ -15,4 +15,3 @@ soroban-sdk = "22.0.0"
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.0", features = ["testutils"] }
-item-nft = { path = "../item-nft" }

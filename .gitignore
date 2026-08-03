@@ -55,3 +55,4 @@ Thumbs.db
 contracts/**/target/
 **/target/
 *.wasm
+contracts/**/test_snapshots/
