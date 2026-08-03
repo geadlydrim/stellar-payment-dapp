@@ -15,8 +15,7 @@ import {
   unequip,
   getEquippedItemId,
 } from '@/lib/game';
-import { getMockMarketPorts } from '@/lib/adapters/mock';
-import { PortError } from '@/lib/adapters/mock/helpers';
+import { getMarketPorts, PortError } from '@/lib/adapters';
 import { StateBadge, TierDot } from './StateBadge';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
@@ -44,6 +43,7 @@ export function ItemDetailModal({
   const [displayName, setDisplayName] = useState(item.meta.name);
   const [notes, setNotes] = useState('');
 
+  const marketAdapter = getMarketPorts(getGameRegistry()).adapter;
   const usable = isUsable(item);
   const weapon = isWeaponItem(item.meta.kind)
     ? parseWeaponAttrs(item.meta.attrs)
@@ -58,7 +58,7 @@ export function ItemDetailModal({
     setConfirming(true);
     try {
       if (getEquippedItemId() === item.id) unequip();
-      const { nftBridge } = getMockMarketPorts(getGameRegistry());
+      const { nftBridge } = getMarketPorts(getGameRegistry());
       await nftBridge.exportToNft(item.id, PLAYER_OWNER_ID);
       setShowMintForm(false);
       onChanged();
@@ -92,7 +92,7 @@ export function ItemDetailModal({
     setError(null);
     setImporting(true);
     try {
-      const { nftBridge } = getMockMarketPorts(getGameRegistry());
+      const { nftBridge } = getMarketPorts(getGameRegistry());
       await nftBridge.importFromNft(item.tokenId, PLAYER_OWNER_ID);
       onChanged();
       onClose();
@@ -371,11 +371,17 @@ export function ItemDetailModal({
             >
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Network</span>
-                <span className="text-[var(--qf-text-2)]">Mock NftBridge</span>
+                <span className="text-[var(--qf-text-2)]">
+                  {marketAdapter === 'stellar'
+                    ? 'Stellar (item-nft)'
+                    : 'Mock NftBridge'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Est. fee</span>
-                <span className="text-[var(--qf-text-2)]">— (Soroban later)</span>
+                <span className="text-[var(--qf-text-2)]">
+                  {marketAdapter === 'stellar' ? 'Wallet signs mint' : '—'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Kind / attrs</span>

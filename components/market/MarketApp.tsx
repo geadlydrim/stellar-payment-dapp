@@ -10,7 +10,8 @@ import {
   PLAYER_OWNER_ID,
   getGameRegistry,
 } from '@/lib/game';
-import { getMockMarketPorts, type MockMarketPorts } from '@/lib/adapters/mock';
+import { getMarketPorts, type MarketPorts } from '@/lib/adapters';
+import { getPublicKey } from '@/lib/wallet';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SaleTab } from './SaleTab';
 import { AuctionTab } from './AuctionTab';
@@ -29,7 +30,11 @@ const TABS: { id: TabId; label: string }[] = [
 
 export function MarketApp() {
   const [tab, setTab] = useState<TabId>('sale');
-  const [ports, setPorts] = useState<MockMarketPorts | null>(null);
+  const [ports, setPorts] = useState<MarketPorts | null>(null);
+  /** Registry inventory owner (game player id — listable AsNft items). */
+  const inventoryOwnerId = PLAYER_OWNER_ID;
+  /** Wallet / mock actor used as seller|buyer|bidder on port calls. */
+  const [actorId, setActorId] = useState(PLAYER_OWNER_ID);
   const [nfts, setNfts] = useState<Item[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -42,20 +47,29 @@ export function MarketApp() {
       setNfts(
         registry
           .listAll()
-          .filter((i) => i.ownerId === PLAYER_OWNER_ID && isListable(i))
+          .filter((i) => i.ownerId === inventoryOwnerId && isListable(i))
       );
     } else {
-      setNfts(
-        registry.listByOwner(PLAYER_OWNER_ID).filter(isListable)
-      );
+      setNfts(registry.listByOwner(inventoryOwnerId).filter(isListable));
     }
+  }, [registry, inventoryOwnerId]);
+
+  useEffect(() => {
+    const next = getMarketPorts(registry);
+    setPorts(next);
+    if (next.adapter === 'stellar') {
+      const wallet = getPublicKey();
+      setActorId(wallet || PLAYER_OWNER_ID);
+    } else {
+      setActorId(PLAYER_OWNER_ID);
+    }
+    setHydrated(true);
   }, [registry]);
 
   useEffect(() => {
-    setPorts(getMockMarketPorts(registry));
+    if (!hydrated) return;
     reloadNfts();
-    setHydrated(true);
-  }, [registry, reloadNfts]);
+  }, [hydrated, reloadNfts, refreshKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -111,8 +125,13 @@ export function MarketApp() {
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-5">
         <p className="text-sm text-[var(--qf-text-3)]">
-          Sale, auction, and offer-board trade for exported NFTs. Mock ports flip
-          Registry state — Stellar adapters plug in later without rewriting Game.
+          Sale, auction, and offer-board trade for exported NFTs. Adapter:{' '}
+          <span className="text-[var(--qf-text-2)] font-medium">
+            {ports?.adapter ?? '…'}
+          </span>
+          {ports?.adapter === 'mock'
+            ? ' — set NEXT_PUBLIC_MARKET_ADAPTER=stellar and contract IDs for on-chain.'
+            : ' — seller/buyer must be connected wallet (G…). Demo buy needs a second wallet.'}
         </p>
 
         {hydrated && (
@@ -176,7 +195,8 @@ export function MarketApp() {
               <SaleTab
                 registry={registry}
                 port={ports.fixedPrice}
-                ownerId={PLAYER_OWNER_ID}
+                ownerId={inventoryOwnerId}
+                actorId={actorId}
                 demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}
@@ -187,7 +207,8 @@ export function MarketApp() {
               <AuctionTab
                 registry={registry}
                 port={ports.auction}
-                ownerId={PLAYER_OWNER_ID}
+                ownerId={inventoryOwnerId}
+                actorId={actorId}
                 demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}
@@ -198,7 +219,8 @@ export function MarketApp() {
               <TradeTab
                 registry={registry}
                 port={ports.offerBoard}
-                ownerId={PLAYER_OWNER_ID}
+                ownerId={inventoryOwnerId}
+                actorId={actorId}
                 demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}

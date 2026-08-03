@@ -8,8 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\"",
-    "test:watch": "tsx --test --watch \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\""
+    "test": "tsx --test \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\"",
+    "test:watch": "tsx --test --watch \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\""
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.9.5",

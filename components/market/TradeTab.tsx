@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { OfferBoardPort, TradeListing, TradeOffer } from '@/lib/ports';
-import { PortError } from '@/lib/adapters/mock/helpers';
+import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import { itemForToken, listableForOwner, shortId } from './market-utils';
 
@@ -11,6 +11,7 @@ interface TradeTabProps {
   registry: ItemRegistry;
   port: OfferBoardPort;
   ownerId: string;
+  actorId: string;
   demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
@@ -21,6 +22,7 @@ export function TradeTab({
   registry,
   port,
   ownerId,
+  actorId,
   demoBuyerId,
   onToast,
   refreshKey,
@@ -100,7 +102,7 @@ export function TradeTab({
               run(async () => {
                 await port.listForOffers({
                   tokenId,
-                  seller: ownerId,
+                  seller: actorId,
                   wantsHint: wantsHint.trim() || undefined,
                 });
                 setTokenId('');
@@ -131,7 +133,7 @@ export function TradeTab({
         )}
         {listings.map((listing) => {
           const item = itemForToken(registry, listing.tokenId);
-          const mine = listing.seller === ownerId;
+          const mine = listing.seller === actorId;
           const key = String(listing.listingId);
           const offers = offersByListing[key] ?? [];
           const pending = offers.filter((o) => o.status === 'pending');
@@ -167,7 +169,7 @@ export function TradeTab({
                       () =>
                         port.cancelListing!({
                           listingId: listing.listingId,
-                          seller: ownerId,
+                          seller: actorId,
                         }),
                       'Trade listing cancelled'
                     )
@@ -213,7 +215,7 @@ export function TradeTab({
                         () =>
                           port.submitOffer({
                             listingId: listing.listingId,
-                            buyer: ownerId,
+                            buyer: actorId,
                             xlm,
                             offerTokenIds: offerTok ? [offerTok] : [],
                           }),
@@ -281,7 +283,7 @@ export function TradeTab({
                                 () =>
                                   port.acceptOffer({
                                     offerId: offer.offerId,
-                                    seller: ownerId,
+                                    seller: actorId,
                                   }),
                                 'Offer accepted — assets transferred'
                               )
@@ -302,7 +304,7 @@ export function TradeTab({
                                 () =>
                                   port.rejectOffer({
                                     offerId: offer.offerId,
-                                    seller: ownerId,
+                                    seller: actorId,
                                   }),
                                 'Offer rejected'
                               )

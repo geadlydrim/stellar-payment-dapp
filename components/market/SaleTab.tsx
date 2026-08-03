@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { FixedPriceListing, FixedPricePort } from '@/lib/ports';
-import { PortError } from '@/lib/adapters/mock/helpers';
+import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import { itemForToken, listableForOwner } from './market-utils';
 
 interface SaleTabProps {
   registry: ItemRegistry;
   port: FixedPricePort;
+  /** Registry owner for listable inventory (game player). */
   ownerId: string;
+  /** Signer / counterparty for port calls (wallet on stellar). */
+  actorId: string;
   demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
@@ -21,6 +24,7 @@ export function SaleTab({
   registry,
   port,
   ownerId,
+  actorId,
   demoBuyerId,
   onToast,
   refreshKey,
@@ -88,7 +92,7 @@ export function SaleTab({
             disabled={busy || !tokenId}
             onClick={() =>
               run(async () => {
-                await port.list({ tokenId, seller: ownerId, priceXlm: price });
+                await port.list({ tokenId, seller: actorId, priceXlm: price });
                 setTokenId('');
               }, 'Listed for sale')
             }
@@ -116,7 +120,7 @@ export function SaleTab({
         )}
         {listings.map((listing) => {
           const item = itemForToken(registry, listing.tokenId);
-          const mine = listing.seller === ownerId;
+          const mine = listing.seller === actorId;
           return (
             <article
               key={String(listing.listingId)}
@@ -142,7 +146,7 @@ export function SaleTab({
                         () =>
                           port.cancel({
                             listingId: listing.listingId,
-                            seller: ownerId,
+                            seller: actorId,
                           }),
                         'Sale cancelled'
                       )
@@ -160,7 +164,7 @@ export function SaleTab({
                         () =>
                           port.buy({
                             listingId: listing.listingId,
-                            buyer: ownerId,
+                            buyer: actorId,
                           }),
                         'Purchased'
                       )
