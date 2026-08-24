@@ -2,8 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
-const PlayApp = dynamic(
-  () => import('@/components/game/PlayApp').then((m) => m.PlayApp),
+const PlayShell = dynamic(
+  () => import('@/components/identity/PlayShell').then((m) => m.PlayShell),
   {
     ssr: false,
     loading: () => (
@@ -21,5 +21,5 @@ const PlayApp = dynamic(
 );
 
 export default function PlayPage() {
-  return <PlayApp />;
+  return <PlayShell />;
 }

@@ -18,6 +18,7 @@ export function listableForOwner(
   registry: ItemRegistry,
   ownerId: string
 ): Item[] {
+  if (!ownerId) return [];
   return registry.listByOwner(ownerId).filter(isListable);
 }
 

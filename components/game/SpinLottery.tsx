@@ -16,6 +16,7 @@ import {
 } from '@/lib/game';
 
 interface SpinLotteryProps {
+  ownerId: string;
   onSpun: (item: Item, result: SpinResult) => void;
 }
 
@@ -50,7 +51,7 @@ function homeIndexForSlot(slotIndex: number): number {
   return HOME_COPY * N + slotIndex;
 }
 
-export function SpinLottery({ onSpun }: SpinLotteryProps) {
+export function SpinLottery({ ownerId, onSpun }: SpinLotteryProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewW, setViewW] = useState(280);
   const [spinning, setSpinning] = useState(false);
@@ -126,7 +127,7 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
       setWinnerAbs(home);
 
       try {
-        const { result: spun, item } = spinAndAdd(undefined, rolled);
+        const { result: spun, item } = spinAndAdd(ownerId, rolled);
         setResult(spun);
         onSpun(item, spun);
       } catch (e) {
@@ -136,7 +137,7 @@ export function SpinLottery({ onSpun }: SpinLotteryProps) {
     };
     raf = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(raf);
-  }, [spinning, viewW, onSpun]);
+  }, [ownerId, spinning, viewW, onSpun]);
 
   // Real slots + trailing filler copies (same pattern) so edges never look empty.
   const strip = useMemo(() => {

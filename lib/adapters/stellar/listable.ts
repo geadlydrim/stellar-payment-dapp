@@ -5,7 +5,7 @@ import { assertStellarAddress, u32ScVal, viewOrThrow } from './sc';
 
 /**
  * Listable gate (Registry) + on-chain owner check.
- * Registry may still hold game player id after export; chain `seller` must own the NFT.
+ * After stellar export remap, seller === Registry owner === chain owner.
  */
 export async function requireListableChainOwner(
   registry: ItemRegistry,
@@ -29,6 +29,9 @@ export async function requireListableChainOwner(
   ]);
   if (String(onChainOwner) !== seller) {
     throw new PortError('Connected wallet is not the on-chain NFT owner');
+  }
+  if (item.ownerId !== seller) {
+    throw new PortError('Registry owner does not match seller');
   }
   return item;
 }

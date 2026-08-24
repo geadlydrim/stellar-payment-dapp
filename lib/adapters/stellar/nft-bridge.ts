@@ -3,6 +3,7 @@ import type { NftBridge } from '@/lib/ports';
 import {
   PortError,
   findItemByTokenId,
+  transferItemOwner,
 } from '@/lib/adapters/helpers';
 import { getAddress } from '@/lib/wallet';
 import type { StellarContractIds } from './env';
@@ -15,6 +16,10 @@ import {
   u32ScVal,
   viewOrThrow,
 } from './sc';
+import {
+  assertNotGuestExportOwner,
+  assertStellarExportOwner,
+} from './export-owner';
 
 export type ListedTokenChecker = (tokenId: TokenId) => boolean | Promise<boolean>;
 
@@ -28,6 +33,11 @@ export interface StellarNftBridgeOptions {
    * Defaults to connected Freighter address via lib/wallet.
    */
   resolveSigner?: () => Promise<string>;
+  /**
+   * On-chain mint. Defaults to item-nft `mint(minter, to, item_id)`.
+   * Tests may stub this to avoid a live chain.
+   */
+  mintToken?: (itemId: ItemId, signer: string) => Promise<TokenId>;
 }
 
 /**
@@ -39,6 +49,7 @@ export class StellarNftBridge implements NftBridge {
   private readonly contracts: StellarContractIds;
   private readonly isTokenListed: ListedTokenChecker;
   private readonly resolveSigner: () => Promise<string>;
+  private readonly mintToken: (itemId: ItemId, signer: string) => Promise<TokenId>;
 
   constructor(options: StellarNftBridgeOptions) {
     this.registry = options.registry;
@@ -53,6 +64,21 @@ export class StellarNftBridge implements NftBridge {
         }
         return addr;
       });
+    this.mintToken =
+      options.mintToken ??
+      (async (itemId, signer) => {
+        const result = await invokeOrThrow(
+          this.contracts.itemNft,
+          'mint',
+          [addressScVal(signer), addressScVal(signer), stringScVal(itemId)],
+          signer
+        );
+        const rawId = result.returnValue;
+        if (rawId === undefined || rawId === null) {
+          throw new PortError('mint succeeded but returned no token_id');
+        }
+        return u32ToTokenId(rawId as number | bigint | string);
+      });
   }
 
   async exportToNft(
@@ -61,6 +87,10 @@ export class StellarNftBridge implements NftBridge {
   ): Promise<{ tokenId: TokenId }> {
     const item = this.registry.get(itemId);
     if (!item) throw new PortError(`Item not found: ${itemId}`);
+
+    // Reject guest before wallet prompt / lock — stellar must not mint the demo bag.
+    assertNotGuestExportOwner(ownerId);
+
     if (item.ownerId !== ownerId) {
       throw new PortError('Not your item');
     }
@@ -69,34 +99,20 @@ export class StellarNftBridge implements NftBridge {
       return { tokenId: item.tokenId };
     }
 
+    const signer = await this.resolveSigner();
+    assertStellarExportOwner(ownerId, signer);
+
     if (item.state === 'InGame') {
       this.registry.lockForTrade(itemId, ownerId);
     } else if (item.state !== 'LockedForTrade') {
       throw new PortError(`Cannot export item in state ${item.state}`);
     }
 
-    const signer = await this.resolveSigner();
-    assertStellarAddress(signer, 'wallet');
-
-    // mint(minter, to, item_id) — signer must be admin or set_minter-authorized
-    const result = await invokeOrThrow(
-      this.contracts.itemNft,
-      'mint',
-      [addressScVal(signer), addressScVal(signer), stringScVal(itemId)],
-      signer
-    );
-
-    const rawId = result.returnValue;
-    if (rawId === undefined || rawId === null) {
-      throw new PortError('mint succeeded but returned no token_id');
-    }
-    const tokenId = u32ToTokenId(rawId as number | bigint | string);
+    const tokenId = await this.mintToken(itemId, signer);
 
     this.registry.markAsNft(itemId, tokenId);
-
-    // Keep Registry ownerId as the game player (inventory stays listable under PLAYER_OWNER_ID).
-    // On-chain owner is `signer`; market adapters verify owner_of before list/settle.
-    // Owner remapping to wallet happens after buy / accept / auction close (v2 workaround).
+    // v2: no transferOwnership — align Registry owner with chain `to` / signer.
+    transferItemOwner(this.registry, itemId, signer);
 
     return { tokenId };
   }
@@ -124,7 +140,7 @@ export class StellarNftBridge implements NftBridge {
     const signer = await this.resolveSigner();
     assertStellarAddress(signer, 'wallet');
 
-    // On-chain burn requires wallet ownership; Registry may still hold game player id.
+    // Session ownerId already matched Registry owner above; chain owner must be signer.
     const onChainOwner = await this.ownerOf(tokenId);
     if (onChainOwner !== signer) {
       throw new PortError('Connected wallet is not the on-chain NFT owner');

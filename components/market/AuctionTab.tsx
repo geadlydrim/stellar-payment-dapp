@@ -111,7 +111,7 @@ export function AuctionTab({
           />
           <button
             type="button"
-            disabled={busy || !tokenId}
+            disabled={busy || !tokenId || !actorId}
             onClick={() =>
               run(async () => {
                 await port.listNftAuction({

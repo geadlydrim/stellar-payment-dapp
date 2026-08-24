@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Poppins, Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { WalletSessionProvider } from '@/components/identity/WalletSessionProvider';
 import './globals.css';
 
 const poppins = Poppins({
@@ -51,7 +52,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="font-sans">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <WalletSessionProvider>{children}</WalletSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
