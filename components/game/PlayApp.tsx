@@ -19,20 +19,28 @@ import { GameCanvas, type EquippedWeaponView } from './GameCanvas';
 import { SpinLottery } from './SpinLottery';
 import { InventoryPanel } from './InventoryPanel';
 
-function refreshEquippedView(): EquippedWeaponView | null {
-  const eq = getEquippedWeapon();
+interface PlayAppProps {
+  /**
+   * Session inventory owner. Guest default is for tests / unwrapped render.
+   * PlayShell always passes the resolved session id.
+   */
+  ownerId?: string;
+}
+
+function refreshEquippedView(ownerId: string): EquippedWeaponView | null {
+  const eq = getEquippedWeapon(ownerId);
   if (!eq) return null;
-  const buff = getActiveBuff();
+  const buff = getActiveBuff(ownerId);
   return {
     weaponType: eq.attrs.weaponType,
     tier: eq.attrs.tier,
     damage: eq.attrs.damage,
-    effectiveDamage: computeDamage(eq.attrs.damage),
+    effectiveDamage: computeDamage(eq.attrs.damage, ownerId),
     buffActive: !!buff,
   };
 }
 
-export function PlayApp() {
+export function PlayApp({ ownerId = PLAYER_OWNER_ID }: PlayAppProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [equippedId, setEquippedId] = useState<string | null>(null);
   const [equipped, setEquipped] = useState<EquippedWeaponView | null>(null);
@@ -41,12 +49,12 @@ export function PlayApp() {
   const [hydrated, setHydrated] = useState(false);
 
   const reload = useCallback(() => {
-    setItems(listVisibleInventory(PLAYER_OWNER_ID));
-    setEquippedId(getEquippedItemId());
-    setEquipped(refreshEquippedView());
-    const buff = getActiveBuff();
+    setItems(listVisibleInventory(ownerId));
+    setEquippedId(getEquippedItemId(ownerId));
+    setEquipped(refreshEquippedView(ownerId));
+    const buff = getActiveBuff(ownerId);
     setBuffEndsAt(buff?.expiresAt ?? null);
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     reload();
@@ -62,12 +70,12 @@ export function PlayApp() {
       return;
     }
     const t = setTimeout(() => reload(), remaining + 50);
-    const interval = setInterval(() => setEquipped(refreshEquippedView()), 500);
+    const interval = setInterval(() => setEquipped(refreshEquippedView(ownerId)), 500);
     return () => {
       clearTimeout(t);
       clearInterval(interval);
     };
-  }, [buffEndsAt, reload]);
+  }, [buffEndsAt, ownerId, reload]);
 
   useEffect(() => {
     if (!toast) return;
@@ -88,7 +96,7 @@ export function PlayApp() {
 
   const handleEquip = (id: string) => {
     try {
-      equipWeapon(id);
+      equipWeapon(id, ownerId);
       reload();
       showToast('Weapon equipped');
     } catch (e) {
@@ -104,7 +112,7 @@ export function PlayApp() {
 
   const handleUseCharm = (id: string) => {
     try {
-      const { buff } = applyCharm(id);
+      const { buff } = applyCharm(id, ownerId);
       reload();
       const secs = Math.max(1, Math.round((buff.expiresAt - Date.now()) / 1000));
       showToast(`Power Charm active ×${buff.multiplier} for ${secs}s`);
@@ -198,8 +206,9 @@ export function PlayApp() {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-          <SpinLottery onSpun={handleSpun} />
+          <SpinLottery ownerId={ownerId} onSpun={handleSpun} />
           <InventoryPanel
+            ownerId={ownerId}
             items={items}
             equippedId={equippedId}
             onEquip={handleEquip}

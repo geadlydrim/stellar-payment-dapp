@@ -10,9 +10,9 @@ import { itemForToken, listableForOwner } from './market-utils';
 interface SaleTabProps {
   registry: ItemRegistry;
   port: FixedPricePort;
-  /** Registry owner for listable inventory (game player). */
+  /** Registry owner for listable inventory (same session id as actorId). */
   ownerId: string;
-  /** Signer / counterparty for port calls (wallet on stellar). */
+  /** Signer / counterparty for port calls (guest on mock, wallet on stellar). */
   actorId: string;
   demoBuyerId: string;
   onToast: (msg: string) => void;
@@ -89,7 +89,7 @@ export function SaleTab({
           />
           <button
             type="button"
-            disabled={busy || !tokenId}
+            disabled={busy || !tokenId || !actorId}
             onClick={() =>
               run(async () => {
                 await port.list({ tokenId, seller: actorId, priceXlm: price });

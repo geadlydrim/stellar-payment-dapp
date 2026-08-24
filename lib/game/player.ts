@@ -16,12 +16,57 @@ import {
 } from './weapons';
 
 export const PLAYER_OWNER_ID = 'stellar4-player';
+/** Unkeyed prefix. Live keys are `${EQUIPPED_STORAGE_KEY}:${ownerId}`. */
 export const EQUIPPED_STORAGE_KEY = 'stellar4:equipped-item';
 export const BUFF_STORAGE_KEY = 'stellar4:damage-buff';
+export const CONSUMED_STORAGE_KEY = 'stellar4:consumed-items';
 
 const REGISTRY_KEY = 'stellar4:item-registry';
 
 let registrySingleton: ItemRegistry | null = null;
+
+function getLocalStorage(): Storage | null {
+  try {
+    if (typeof globalThis === 'undefined' || !('localStorage' in globalThis)) {
+      return null;
+    }
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function namespacedKey(prefix: string, ownerId: string): string {
+  return `${prefix}:${ownerId}`;
+}
+
+/**
+ * Copy an unkeyed combat key into the guest namespace once, then remove it.
+ * Never copies onto a `G…` (or any non-guest) key.
+ */
+function migrateUnkeyedPrefix(prefix: string): void {
+  const storage = getLocalStorage();
+  if (!storage) return;
+  try {
+    const unkeyed = storage.getItem(prefix);
+    if (unkeyed === null) return;
+    const guestKey = namespacedKey(prefix, PLAYER_OWNER_ID);
+    if (storage.getItem(guestKey) === null) {
+      storage.setItem(guestKey, unkeyed);
+    }
+    storage.removeItem(prefix);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+/** Lazy one-time migrate of unkeyed equipped/buff/consumed → guest keys only. */
+function migrateGuestCombatKeys(ownerId: string): void {
+  if (ownerId !== PLAYER_OWNER_ID) return;
+  migrateUnkeyedPrefix(EQUIPPED_STORAGE_KEY);
+  migrateUnkeyedPrefix(BUFF_STORAGE_KEY);
+  migrateUnkeyedPrefix(CONSUMED_STORAGE_KEY);
+}
 
 /** Client-side registry singleton (localStorage-backed). SSR-safe. */
 export function getGameRegistry(): ItemRegistry {
@@ -42,20 +87,30 @@ export function listInventory(ownerId: string = PLAYER_OWNER_ID): Item[] {
   return getGameRegistry().listByOwner(ownerId);
 }
 
-export function getEquippedItemId(): ItemId | null {
-  if (typeof window === 'undefined') return null;
+export function getEquippedItemId(
+  ownerId: string = PLAYER_OWNER_ID
+): ItemId | null {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return null;
   try {
-    return localStorage.getItem(EQUIPPED_STORAGE_KEY);
+    return storage.getItem(namespacedKey(EQUIPPED_STORAGE_KEY, ownerId));
   } catch {
     return null;
   }
 }
 
-function setEquippedItemId(id: ItemId | null): void {
-  if (typeof window === 'undefined') return;
+function setEquippedItemId(
+  id: ItemId | null,
+  ownerId: string = PLAYER_OWNER_ID
+): void {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    if (id) localStorage.setItem(EQUIPPED_STORAGE_KEY, id);
-    else localStorage.removeItem(EQUIPPED_STORAGE_KEY);
+    const key = namespacedKey(EQUIPPED_STORAGE_KEY, ownerId);
+    if (id) storage.setItem(key, id);
+    else storage.removeItem(key);
   } catch {
     // ignore quota / private mode
   }
@@ -66,14 +121,19 @@ export interface DamageBuff {
   expiresAt: number;
 }
 
-export function getActiveBuff(): DamageBuff | null {
-  if (typeof window === 'undefined') return null;
+export function getActiveBuff(
+  ownerId: string = PLAYER_OWNER_ID
+): DamageBuff | null {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return null;
+  const key = namespacedKey(BUFF_STORAGE_KEY, ownerId);
   try {
-    const raw = localStorage.getItem(BUFF_STORAGE_KEY);
+    const raw = storage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DamageBuff;
     if (!parsed?.expiresAt || parsed.expiresAt <= Date.now()) {
-      localStorage.removeItem(BUFF_STORAGE_KEY);
+      storage.removeItem(key);
       return null;
     }
     return parsed;
@@ -82,11 +142,17 @@ export function getActiveBuff(): DamageBuff | null {
   }
 }
 
-function setActiveBuff(buff: DamageBuff | null): void {
-  if (typeof window === 'undefined') return;
+function setActiveBuff(
+  buff: DamageBuff | null,
+  ownerId: string = PLAYER_OWNER_ID
+): void {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    if (buff) localStorage.setItem(BUFF_STORAGE_KEY, JSON.stringify(buff));
-    else localStorage.removeItem(BUFF_STORAGE_KEY);
+    const key = namespacedKey(BUFF_STORAGE_KEY, ownerId);
+    if (buff) storage.setItem(key, JSON.stringify(buff));
+    else storage.removeItem(key);
   } catch {
     // ignore
   }
@@ -99,16 +165,16 @@ function setActiveBuff(buff: DamageBuff | null): void {
 export function getEquippedWeapon(
   ownerId: string = PLAYER_OWNER_ID
 ): { item: Item; attrs: WeaponAttrs } | null {
-  const id = getEquippedItemId();
+  const id = getEquippedItemId(ownerId);
   if (!id) return null;
   const item = getGameRegistry().get(id);
   if (!item || item.ownerId !== ownerId || !isUsable(item) || !isWeaponItem(item.meta.kind)) {
-    setEquippedItemId(null);
+    setEquippedItemId(null, ownerId);
     return null;
   }
   const attrs = parseWeaponAttrs(item.meta.attrs);
   if (!attrs) {
-    setEquippedItemId(null);
+    setEquippedItemId(null, ownerId);
     return null;
   }
   return { item, attrs };
@@ -150,12 +216,12 @@ export function equipWeapon(
   if (!parseWeaponAttrs(item.meta.attrs)) {
     throw new GameActionError('Weapon is missing attrs');
   }
-  setEquippedItemId(item.id);
+  setEquippedItemId(item.id, ownerId);
   return item;
 }
 
-export function unequip(): void {
-  setEquippedItemId(null);
+export function unequip(ownerId: string = PLAYER_OWNER_ID): void {
+  setEquippedItemId(null, ownerId);
 }
 
 /**
@@ -184,30 +250,39 @@ export function useCharm(
     multiplier: attrs.buffMultiplier,
     expiresAt: Date.now() + attrs.durationMs,
   };
-  setActiveBuff(buff);
-  markConsumed(itemId);
+  setActiveBuff(buff, ownerId);
+  markConsumed(itemId, ownerId);
 
   return { item, buff, attrs };
 }
 
-const CONSUMED_KEY = 'stellar4:consumed-items';
-
-function markConsumed(itemId: ItemId): void {
-  if (typeof window === 'undefined') return;
+function markConsumed(
+  itemId: ItemId,
+  ownerId: string = PLAYER_OWNER_ID
+): void {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    const raw = localStorage.getItem(CONSUMED_KEY);
+    const key = namespacedKey(CONSUMED_STORAGE_KEY, ownerId);
+    const raw = storage.getItem(key);
     const list: string[] = raw ? (JSON.parse(raw) as string[]) : [];
     if (!list.includes(itemId)) list.push(itemId);
-    localStorage.setItem(CONSUMED_KEY, JSON.stringify(list));
+    storage.setItem(key, JSON.stringify(list));
   } catch {
     // ignore
   }
 }
 
-export function isConsumed(itemId: ItemId): boolean {
-  if (typeof window === 'undefined') return false;
+export function isConsumed(
+  itemId: ItemId,
+  ownerId: string = PLAYER_OWNER_ID
+): boolean {
+  migrateGuestCombatKeys(ownerId);
+  const storage = getLocalStorage();
+  if (!storage) return false;
   try {
-    const raw = localStorage.getItem(CONSUMED_KEY);
+    const raw = storage.getItem(namespacedKey(CONSUMED_STORAGE_KEY, ownerId));
     if (!raw) return false;
     return (JSON.parse(raw) as string[]).includes(itemId);
   } catch {
@@ -216,7 +291,7 @@ export function isConsumed(itemId: ItemId): boolean {
 }
 
 export function listVisibleInventory(ownerId: string = PLAYER_OWNER_ID): Item[] {
-  return listInventory(ownerId).filter((i) => !isConsumed(i.id));
+  return listInventory(ownerId).filter((i) => !isConsumed(i.id, ownerId));
 }
 
 /**
@@ -233,7 +308,7 @@ export function requestExportLock(
   if (!isUsable(item)) {
     throw new GameActionError(`Cannot export: item is already ${item.state}`);
   }
-  if (getEquippedItemId() === itemId) setEquippedItemId(null);
+  if (getEquippedItemId(ownerId) === itemId) setEquippedItemId(null, ownerId);
   return getGameRegistry().lockForTrade(itemId, ownerId);
 }
 
@@ -257,8 +332,11 @@ export type ImportHook = (
 ) => Promise<{ itemId: ItemId }>;
 
 /** Effective damage including active buff. */
-export function computeDamage(base: number): number {
-  const buff = getActiveBuff();
+export function computeDamage(
+  base: number,
+  ownerId: string = PLAYER_OWNER_ID
+): number {
+  const buff = getActiveBuff(ownerId);
   if (!buff) return base;
   return Math.round(base * buff.multiplier);
 }

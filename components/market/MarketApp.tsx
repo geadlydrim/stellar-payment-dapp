@@ -1,22 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  MemoryItemRegistry,
-  isListable,
-  type Item,
-} from '@/lib/registry';
-import {
-  PLAYER_OWNER_ID,
-  getGameRegistry,
-} from '@/lib/game';
+import { type Item } from '@/lib/registry';
+import { getGameRegistry } from '@/lib/game';
 import { getMarketPorts, type MarketPorts } from '@/lib/adapters';
-import { getPublicKey } from '@/lib/wallet';
+import { useWalletSession } from '@/components/identity/WalletSessionProvider';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SaleTab } from './SaleTab';
 import { AuctionTab } from './AuctionTab';
 import { TradeTab } from './TradeTab';
-import { shortId } from './market-utils';
+import { listableForOwner, shortId } from './market-utils';
 
 export const DEMO_BUYER_ID = 'stellar4-demo-buyer';
 
@@ -31,40 +24,55 @@ const TABS: { id: TabId; label: string }[] = [
 export function MarketApp() {
   const [tab, setTab] = useState<TabId>('sale');
   const [ports, setPorts] = useState<MarketPorts | null>(null);
-  /** Registry inventory owner (game player id — listable AsNft items). */
-  const inventoryOwnerId = PLAYER_OWNER_ID;
-  /** Wallet / mock actor used as seller|buyer|bidder on port calls. */
-  const [actorId, setActorId] = useState(PLAYER_OWNER_ID);
+  const {
+    adapter,
+    connecting,
+    hydrated: walletHydrated,
+    session,
+    connect: sessionConnect,
+    disconnect: sessionDisconnect,
+  } = useWalletSession();
+  /**
+   * Session owner for port seller|buyer|bidder.
+   * Mock: guest (`stellar4-player`). Stellar + G…: that wallet. Stellar disconnected: ''.
+   */
+  const actorId = session?.ownerId ?? '';
+  /** Same string as actorId — listable “yours” is never a second person. */
+  const inventoryOwnerId = actorId;
   const [nfts, setNfts] = useState<Item[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
 
   const registry = useMemo(() => getGameRegistry(), []);
 
   const reloadNfts = useCallback(() => {
-    if (registry instanceof MemoryItemRegistry) {
-      setNfts(
-        registry
-          .listAll()
-          .filter((i) => i.ownerId === inventoryOwnerId && isListable(i))
-      );
-    } else {
-      setNfts(registry.listByOwner(inventoryOwnerId).filter(isListable));
+    if (!inventoryOwnerId) {
+      setNfts([]);
+      return;
     }
+    setNfts(listableForOwner(registry, inventoryOwnerId));
   }, [registry, inventoryOwnerId]);
 
   useEffect(() => {
-    const next = getMarketPorts(registry);
-    setPorts(next);
-    if (next.adapter === 'stellar') {
-      const wallet = getPublicKey();
-      setActorId(wallet || PLAYER_OWNER_ID);
-    } else {
-      setActorId(PLAYER_OWNER_ID);
-    }
-    setHydrated(true);
+    setPorts(getMarketPorts(registry));
   }, [registry]);
+
+  const handleConnect = async () => {
+    try {
+      await sessionConnect();
+      setToast('Wallet connected');
+    } catch (e) {
+      setToast(
+        e instanceof Error ? e.message : 'Wallet connection failed — try Freighter on testnet'
+      );
+    }
+  };
+
+  const handleDisconnect = () => {
+    sessionDisconnect();
+  };
+
+  const hydrated = walletHydrated && ports !== null;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -118,6 +126,35 @@ export function MarketApp() {
             >
               Play
             </a>
+            {adapter === 'stellar' &&
+              (actorId ? (
+                <>
+                  <span className="hidden sm:inline font-mono text-[11px] text-[var(--qf-text-3)]">
+                    {shortId(actorId, 4, 4)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="text-xs text-[var(--qf-text-2)] border border-[var(--qf-card-border)] bg-transparent rounded-full py-1 px-2.5 cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleConnect()}
+                  disabled={connecting}
+                  className="text-xs font-semibold rounded-full py-1.5 px-3 border-none cursor-pointer disabled:opacity-60"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, var(--qf-accent-1), var(--qf-accent-2))',
+                    color: 'var(--qf-accent-ink)',
+                  }}
+                >
+                  {connecting ? 'Connecting…' : 'Connect wallet'}
+                </button>
+              ))}
             <ThemeToggle />
           </div>
         </div>
@@ -131,7 +168,9 @@ export function MarketApp() {
           </span>
           {ports?.adapter === 'mock'
             ? ' — set NEXT_PUBLIC_MARKET_ADAPTER=stellar and contract IDs for on-chain.'
-            : ' — seller/buyer must be connected wallet (G…). Demo buy needs a second wallet.'}
+            : actorId
+              ? ' — listing as connected wallet. Demo buy needs a second wallet.'
+              : ' — connect a testnet wallet (G…) before listing.'}
         </p>
 
         {hydrated && (

@@ -39,6 +39,8 @@ export {
 export {
   PLAYER_OWNER_ID,
   EQUIPPED_STORAGE_KEY,
+  BUFF_STORAGE_KEY,
+  CONSUMED_STORAGE_KEY,
   getGameRegistry,
   setGameRegistry,
   listInventory,

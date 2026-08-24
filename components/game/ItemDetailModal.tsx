@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { isUsable, type Item } from '@/lib/registry';
 import {
   TIER_COLORS,
-  PLAYER_OWNER_ID,
   cancelExportLock,
   getGameRegistry,
   parseWeaponAttrs,
@@ -20,6 +19,7 @@ import { StateBadge, TierDot } from './StateBadge';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
 interface ItemDetailModalProps {
+  ownerId: string;
   item: Item;
   equippedId: string | null;
   onClose: () => void;
@@ -29,6 +29,7 @@ interface ItemDetailModalProps {
 }
 
 export function ItemDetailModal({
+  ownerId,
   item,
   equippedId,
   onClose,
@@ -57,9 +58,9 @@ export function ItemDetailModal({
     setError(null);
     setConfirming(true);
     try {
-      if (getEquippedItemId() === item.id) unequip();
+      if (getEquippedItemId(ownerId) === item.id) unequip(ownerId);
       const { nftBridge } = getMarketPorts(getGameRegistry());
-      await nftBridge.exportToNft(item.id, PLAYER_OWNER_ID);
+      await nftBridge.exportToNft(item.id, ownerId);
       setShowMintForm(false);
       onChanged();
       onClose();
@@ -79,7 +80,7 @@ export function ItemDetailModal({
   const handleCancelExport = () => {
     setError(null);
     try {
-      cancelExportLock(item.id);
+      cancelExportLock(item.id, ownerId);
       onChanged();
       onClose();
     } catch (e) {
@@ -93,7 +94,7 @@ export function ItemDetailModal({
     setImporting(true);
     try {
       const { nftBridge } = getMarketPorts(getGameRegistry());
-      await nftBridge.importFromNft(item.tokenId, PLAYER_OWNER_ID);
+      await nftBridge.importFromNft(item.tokenId, ownerId);
       onChanged();
       onClose();
     } catch (e) {

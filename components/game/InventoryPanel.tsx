@@ -14,6 +14,7 @@ import { ItemDetailModal } from './ItemDetailModal';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
 interface InventoryPanelProps {
+  ownerId: string;
   items: Item[];
   equippedId: string | null;
   onEquip: (id: string) => void;
@@ -22,6 +23,7 @@ interface InventoryPanelProps {
 }
 
 export function InventoryPanel({
+  ownerId,
   items,
   equippedId,
   onEquip,
@@ -144,8 +146,9 @@ export function InventoryPanel({
 
       {selectedFresh && (
         <ItemDetailModal
+          ownerId={ownerId}
           item={selectedFresh}
-          equippedId={equippedId ?? getEquippedItemId()}
+          equippedId={equippedId ?? getEquippedItemId(ownerId)}
           onClose={() => setSelected(null)}
           onChanged={() => {
             onChanged();

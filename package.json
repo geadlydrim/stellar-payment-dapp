@@ -8,8 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\"",
-    "test:watch": "tsx --test --watch \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\""
+    "test": "tsx --test \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\" \"lib/adapters/stellar/nft-bridge.test.ts\" \"lib/game/player-session-keys.test.ts\" \"lib/game/play-ui-ownerid.test.ts\" \"lib/identity/owner.test.ts\" \"lib/identity/play-shell-source.test.ts\" \"lib/identity/market-owner-source.test.ts\" \"lib/identity/market-owner.test.ts\"",
+    "test:watch": "tsx --test --watch \"lib/registry/registry.test.ts\" \"lib/adapters/mock/mock-ports.test.ts\" \"lib/adapters/stellar/stellar-ids.test.ts\" \"lib/adapters/stellar/nft-bridge.test.ts\" \"lib/game/player-session-keys.test.ts\" \"lib/game/play-ui-ownerid.test.ts\" \"lib/identity/owner.test.ts\" \"lib/identity/play-shell-source.test.ts\" \"lib/identity/market-owner-source.test.ts\" \"lib/identity/market-owner.test.ts\""
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
