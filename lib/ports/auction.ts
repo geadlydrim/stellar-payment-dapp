@@ -1,6 +1,6 @@
 import type { TokenId } from '@/lib/registry';
 
-/** NFT-backed auction listing (legacy description-only auctions are transitional). */
+/** NFT-backed auction listing. */
 export interface AuctionListing {
   auctionId: string | number;
   tokenId: TokenId;

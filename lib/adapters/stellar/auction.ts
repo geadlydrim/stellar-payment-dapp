@@ -222,7 +222,7 @@ export class StellarAuctionPort implements AuctionPort {
     raw: Record<string, unknown>
   ): (AuctionListing & { settled: boolean }) | null {
     const tokenRaw = raw.token_id;
-    if (tokenRaw == null) return null; // legacy XLM-only auction
+    if (tokenRaw == null) return null; // skip description-only rows (no NFT)
     const highestBid = Number(raw.highest_bid ?? 0);
     return {
       auctionId: Number(raw.id ?? 0),

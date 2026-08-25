@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { Item } from '@/lib/registry';
+import type { NftBridge } from '@/lib/ports';
 import {
   PLAYER_OWNER_ID,
   listVisibleInventory,
@@ -18,6 +19,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { GameCanvas, type EquippedWeaponView } from './GameCanvas';
 import { SpinLottery } from './SpinLottery';
 import { InventoryPanel } from './InventoryPanel';
+import type { ItemExportAdapter } from './ItemDetailModal';
 
 interface PlayAppProps {
   /**
@@ -25,6 +27,9 @@ interface PlayAppProps {
    * PlayShell always passes the resolved session id.
    */
   ownerId?: string;
+  /** Injected NftBridge — PlayShell owns adapter composition; Game must not import adapters. */
+  nftBridge: NftBridge;
+  adapter?: ItemExportAdapter;
 }
 
 function refreshEquippedView(ownerId: string): EquippedWeaponView | null {
@@ -40,7 +45,11 @@ function refreshEquippedView(ownerId: string): EquippedWeaponView | null {
   };
 }
 
-export function PlayApp({ ownerId = PLAYER_OWNER_ID }: PlayAppProps) {
+export function PlayApp({
+  ownerId = PLAYER_OWNER_ID,
+  nftBridge,
+  adapter,
+}: PlayAppProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [equippedId, setEquippedId] = useState<string | null>(null);
   const [equipped, setEquipped] = useState<EquippedWeaponView | null>(null);
@@ -211,6 +220,8 @@ export function PlayApp({ ownerId = PLAYER_OWNER_ID }: PlayAppProps) {
             ownerId={ownerId}
             items={items}
             equippedId={equippedId}
+            nftBridge={nftBridge}
+            adapter={adapter}
             onEquip={handleEquip}
             onUseCharm={handleUseCharm}
             onChanged={reload}

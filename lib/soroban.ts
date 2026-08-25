@@ -1,5 +1,5 @@
 /**
- * Soroban RPC helpers: invoke, read views, poll events.
+ * Soroban RPC helpers: invoke and read views for Marketplace adapters.
  */
 
 import {
@@ -14,7 +14,6 @@ import {
 import { NETWORK_PASSPHRASE, signTransaction } from './wallet';
 
 export const SOROBAN_RPC_URL = 'https://soroban-testnet.stellar.org';
-export const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 
 const server = new rpc.Server(SOROBAN_RPC_URL, { allowHttp: false });
 
@@ -25,20 +24,6 @@ export interface InvokeResult {
   status: TxStatus;
   returnValue?: unknown;
   error?: string;
-}
-
-function getContractId(): string {
-  const id = process.env.NEXT_PUBLIC_AUCTION_CONTRACT_ID;
-  if (!id) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_AUCTION_CONTRACT_ID — deploy the contract and set it in .env.local'
-    );
-  }
-  return id;
-}
-
-export function getAuctionContractId(): string {
-  return getContractId();
 }
 
 async function loadAccount(address: string): Promise<Account> {
@@ -171,17 +156,6 @@ export async function invokeContract(
 }
 
 /**
- * Build, simulate, sign, submit, and poll a contract call (legacy auction ID).
- */
-export async function invoke(
-  method: string,
-  args: xdr.ScVal[],
-  caller: string
-): Promise<InvokeResult> {
-  return invokeContract(getContractId(), method, args, caller);
-}
-
-/**
  * Simulate-only view call against any contract (no wallet signature).
  */
 export async function readContractView(
@@ -214,105 +188,6 @@ export async function readContractView(
     return scValToNative(sim.result.retval);
   }
   return null;
-}
-
-/**
- * Simulate-only view call (legacy auction ID).
- */
-export async function readView(
-  method: string,
-  args: xdr.ScVal[] = []
-): Promise<unknown> {
-  return readContractView(getContractId(), method, args);
-}
-
-export interface ContractEvent {
-  ledger: number;
-  topics: string[];
-  value: unknown;
-  txHash?: string;
-  ledgerClosedAt?: string;
-  /** Stable id from RPC when available */
-  id?: string;
-}
-
-/** How far back to scan on first load for the activity feed. */
-export const EVENT_BACKFILL_LEDGERS = 5_000;
-
-/**
- * Fetch contract events since a ledger (exclusive lower bound).
- * Pass `sinceLedger = 0` (or omit lookback) with `lookback` to backfill recent history.
- */
-export async function getContractEvents(
-  sinceLedger: number,
-  options?: { lookback?: number; limit?: number }
-): Promise<{ events: ContractEvent[]; latestLedger: number }> {
-  const contractId = getContractId();
-
-  const latest = await server.getLatestLedger();
-  const lookback = options?.lookback ?? 10_000;
-  const startLedger =
-    sinceLedger <= 0
-      ? Math.max(1, latest.sequence - (options?.lookback ?? EVENT_BACKFILL_LEDGERS))
-      : Math.max(sinceLedger + 1, latest.sequence - lookback);
-
-  if (startLedger > latest.sequence) {
-    return { events: [], latestLedger: latest.sequence };
-  }
-
-  const response = await server.getEvents({
-    startLedger,
-    filters: [
-      {
-        type: 'contract',
-        contractIds: [contractId],
-      },
-    ],
-    limit: options?.limit ?? 50,
-  });
-
-  const events: ContractEvent[] = (response.events || []).map((ev) => {
-    const topics: string[] = [];
-    try {
-      for (const t of ev.topic || []) {
-        try {
-          const native = scValToNative(t);
-          topics.push(String(native));
-        } catch {
-          topics.push('?');
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-
-    let value: unknown;
-    try {
-      value = ev.value ? scValToNative(ev.value) : null;
-    } catch {
-      value = null;
-    }
-
-    const raw = ev as {
-      txHash?: string;
-      ledgerClosedAt?: string;
-      id?: string;
-    };
-
-    return {
-      ledger: Number(ev.ledger),
-      topics,
-      value,
-      txHash: raw.txHash,
-      ledgerClosedAt: raw.ledgerClosedAt,
-      id: raw.id,
-    };
-  });
-
-  return {
-    events,
-    latestLedger: response.latestLedger ?? latest.sequence,
-  };
 }
 
 export { server as sorobanServer };

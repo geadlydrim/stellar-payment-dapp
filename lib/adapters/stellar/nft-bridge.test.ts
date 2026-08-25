@@ -204,6 +204,8 @@ describe('identity 05 source guards', () => {
     assert.match(text, /data-hook="export-to-nft-confirm"/);
     assert.match(text, /data-hook="import-from-nft"/);
     assert.doesNotMatch(text, /PLAYER_OWNER_ID/);
+    assert.doesNotMatch(text, /getMarketPorts/);
+    assert.doesNotMatch(text, /@\/lib\/adapters/);
   });
 
   it('stellar listable asserts Registry owner === seller after chain check', () => {

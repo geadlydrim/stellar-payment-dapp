@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { isUsable, type Item } from '@/lib/registry';
+import type { NftBridge } from '@/lib/ports';
 import {
   TIER_COLORS,
   cancelExportLock,
-  getGameRegistry,
   parseWeaponAttrs,
   parseCharmAttrs,
   isWeaponItem,
@@ -14,14 +14,17 @@ import {
   unequip,
   getEquippedItemId,
 } from '@/lib/game';
-import { getMarketPorts, PortError } from '@/lib/adapters';
 import { StateBadge, TierDot } from './StateBadge';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
+
+export type ItemExportAdapter = 'mock' | 'stellar';
 
 interface ItemDetailModalProps {
   ownerId: string;
   item: Item;
   equippedId: string | null;
+  nftBridge: NftBridge;
+  adapter?: ItemExportAdapter;
   onClose: () => void;
   onChanged: () => void;
   onEquip: (id: string) => void;
@@ -32,6 +35,8 @@ export function ItemDetailModal({
   ownerId,
   item,
   equippedId,
+  nftBridge,
+  adapter = 'mock',
   onClose,
   onChanged,
   onEquip,
@@ -41,10 +46,7 @@ export function ItemDetailModal({
   const [confirming, setConfirming] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState(item.meta.name);
-  const [notes, setNotes] = useState('');
 
-  const marketAdapter = getMarketPorts(getGameRegistry()).adapter;
   const usable = isUsable(item);
   const weapon = isWeaponItem(item.meta.kind)
     ? parseWeaponAttrs(item.meta.attrs)
@@ -59,18 +61,15 @@ export function ItemDetailModal({
     setConfirming(true);
     try {
       if (getEquippedItemId(ownerId) === item.id) unequip(ownerId);
-      const { nftBridge } = getMarketPorts(getGameRegistry());
       await nftBridge.exportToNft(item.id, ownerId);
       setShowMintForm(false);
       onChanged();
       onClose();
     } catch (e) {
       setError(
-        e instanceof GameActionError || e instanceof PortError
+        e instanceof GameActionError || e instanceof Error
           ? e.message
-          : e instanceof Error
-            ? e.message
-            : 'Export failed'
+          : 'Export failed'
       );
     } finally {
       setConfirming(false);
@@ -93,16 +92,11 @@ export function ItemDetailModal({
     setError(null);
     setImporting(true);
     try {
-      const { nftBridge } = getMarketPorts(getGameRegistry());
       await nftBridge.importFromNft(item.tokenId, ownerId);
       onChanged();
       onClose();
     } catch (e) {
-      setError(
-        e instanceof PortError || e instanceof Error
-          ? e.message
-          : 'Import failed'
-      );
+      setError(e instanceof Error ? e.message : 'Import failed');
     } finally {
       setImporting(false);
     }
@@ -337,7 +331,7 @@ export function ItemDetailModal({
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--qf-text-2)]">
-              Export locks the item, mints a mock NFT token id, and marks it{' '}
+              Export locks the item, mints an NFT token id, and marks it{' '}
               <code className="text-xs">AsNft</code>. It cannot be used in-game
               until imported. List it on{' '}
               <a href="/market" className="underline text-[var(--qf-text-1)]">
@@ -346,26 +340,6 @@ export function ItemDetailModal({
               .
             </p>
 
-            <label className="block text-xs text-[var(--qf-text-3)]">
-              Display name
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-1 w-full rounded-lg px-3 py-2 text-sm border border-[var(--qf-input-border)] bg-[var(--qf-input-bg)] text-[var(--qf-text-1)] outline-none"
-              />
-            </label>
-
-            <label className="block text-xs text-[var(--qf-text-3)]">
-              Notes (optional)
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="mt-1 w-full rounded-lg px-3 py-2 text-sm border border-[var(--qf-input-border)] bg-[var(--qf-input-bg)] text-[var(--qf-text-1)] outline-none resize-none"
-                placeholder="Shown on marketplace later"
-              />
-            </label>
-
             <div
               className="rounded-lg p-3 text-xs space-y-1"
               style={{ background: 'var(--qf-input-bg)' }}
@@ -373,7 +347,7 @@ export function ItemDetailModal({
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Network</span>
                 <span className="text-[var(--qf-text-2)]">
-                  {marketAdapter === 'stellar'
+                  {adapter === 'stellar'
                     ? 'Stellar (item-nft)'
                     : 'Mock NftBridge'}
                 </span>
@@ -381,7 +355,7 @@ export function ItemDetailModal({
               <div className="flex justify-between">
                 <span className="text-[var(--qf-text-4)]">Est. fee</span>
                 <span className="text-[var(--qf-text-2)]">
-                  {marketAdapter === 'stellar' ? 'Wallet signs mint' : '—'}
+                  {adapter === 'stellar' ? 'Wallet signs mint' : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -403,7 +377,7 @@ export function ItemDetailModal({
               </button>
               <button
                 type="button"
-                disabled={confirming || !displayName.trim()}
+                disabled={confirming}
                 onClick={() => void handleConfirmExport()}
                 data-hook="export-to-nft-confirm"
                 className="flex-1 py-2 rounded-lg text-sm font-semibold border-none cursor-pointer disabled:opacity-50"

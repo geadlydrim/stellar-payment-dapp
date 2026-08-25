@@ -320,7 +320,7 @@ export function cancelExportLock(
   return getGameRegistry().unlock(itemId, ownerId);
 }
 
-/** Optional injectables (tests / alternate bridges). UI uses getMarketPorts composition root. */
+/** Optional injectables (tests / alternate bridges). PlayShell injects NftBridge into Game UI. */
 export type ExportHook = (
   itemId: ItemId,
   ownerId: string

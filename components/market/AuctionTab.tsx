@@ -5,7 +5,7 @@ import type { ItemRegistry } from '@/lib/registry';
 import type { AuctionListing, AuctionPort } from '@/lib/ports';
 import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
-import { formatEnd, itemForToken, listableForOwner } from './market-utils';
+import { formatEnd, itemForToken, listableForOwner, availableToList, listingSelectEmptyLabel } from './market-utils';
 
 interface AuctionTabProps {
   registry: ItemRegistry;
@@ -16,6 +16,7 @@ interface AuctionTabProps {
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
+  listedTokenIds: ReadonlySet<string>;
 }
 
 export function AuctionTab({
@@ -27,6 +28,7 @@ export function AuctionTab({
   onToast,
   refreshKey,
   onMutate,
+  listedTokenIds,
 }: AuctionTabProps) {
   const [auctions, setAuctions] = useState<AuctionListing[]>([]);
   const [tokenId, setTokenId] = useState('');
@@ -35,7 +37,8 @@ export function AuctionTab({
   const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
-  const listable = listableForOwner(registry, ownerId);
+  const ownedListable = listableForOwner(registry, ownerId);
+  const listable = availableToList(ownedListable, listedTokenIds);
 
   const reload = useCallback(async () => {
     const withAll = port as AuctionPort & {
@@ -54,6 +57,10 @@ export function AuctionTab({
     return () => clearInterval(t);
   }, [reload, refreshKey]);
 
+  useEffect(() => {
+    if (tokenId && listedTokenIds.has(tokenId)) setTokenId('');
+  }, [tokenId, listedTokenIds]);
+
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -70,14 +77,6 @@ export function AuctionTab({
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-[var(--qf-text-3)]">
-        Mock NFT auctions for Marketplace. Legacy on-chain BidDrift UI remains at{' '}
-        <a href="/" className="underline text-[var(--qf-text-2)]">
-          /
-        </a>{' '}
-        until wired as <code className="text-[11px]">AuctionPort</code>.
-      </p>
-
       <section
         className="rounded-xl border border-[var(--qf-card-border)] p-4"
         style={{ background: 'var(--qf-card-bg-soft)' }}
@@ -89,7 +88,15 @@ export function AuctionTab({
           List NFT auction
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          <TokenSelect items={listable} value={tokenId} onChange={setTokenId} />
+          <TokenSelect
+            items={listable}
+            value={tokenId}
+            onChange={setTokenId}
+            emptyLabel={listingSelectEmptyLabel({
+              ownedListable: ownedListable.length,
+              available: listable.length,
+            })}
+          />
           <input
             type="number"
             min="0.1"

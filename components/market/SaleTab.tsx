@@ -5,7 +5,12 @@ import type { ItemRegistry } from '@/lib/registry';
 import type { FixedPriceListing, FixedPricePort } from '@/lib/ports';
 import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
-import { itemForToken, listableForOwner } from './market-utils';
+import {
+  availableToList,
+  itemForToken,
+  listableForOwner,
+  listingSelectEmptyLabel,
+} from './market-utils';
 
 interface SaleTabProps {
   registry: ItemRegistry;
@@ -18,6 +23,8 @@ interface SaleTabProps {
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
+  /** TokenIds already occupying a sale / auction / trade listing. */
+  listedTokenIds: ReadonlySet<string>;
 }
 
 export function SaleTab({
@@ -29,13 +36,15 @@ export function SaleTab({
   onToast,
   refreshKey,
   onMutate,
+  listedTokenIds,
 }: SaleTabProps) {
   const [listings, setListings] = useState<FixedPriceListing[]>([]);
   const [tokenId, setTokenId] = useState('');
   const [price, setPrice] = useState('10');
   const [busy, setBusy] = useState(false);
 
-  const listable = listableForOwner(registry, ownerId);
+  const ownedListable = listableForOwner(registry, ownerId);
+  const listable = availableToList(ownedListable, listedTokenIds);
 
   const reload = useCallback(async () => {
     const active = (await port.listActive?.()) ?? [];
@@ -45,6 +54,10 @@ export function SaleTab({
   useEffect(() => {
     void reload();
   }, [reload, refreshKey]);
+
+  useEffect(() => {
+    if (tokenId && listedTokenIds.has(tokenId)) setTokenId('');
+  }, [tokenId, listedTokenIds]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -76,7 +89,15 @@ export function SaleTab({
           Only <code className="text-[11px]">AsNft</code> items with a tokenId can be listed.
         </p>
         <div className="grid gap-2 sm:grid-cols-[1fr_100px_auto]">
-          <TokenSelect items={listable} value={tokenId} onChange={setTokenId} />
+          <TokenSelect
+            items={listable}
+            value={tokenId}
+            onChange={setTokenId}
+            emptyLabel={listingSelectEmptyLabel({
+              ownedListable: ownedListable.length,
+              available: listable.length,
+            })}
+          />
           <input
             type="number"
             min="0.1"

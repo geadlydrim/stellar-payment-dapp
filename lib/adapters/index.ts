@@ -4,7 +4,7 @@
  * Phase D contract IDs are set (see .env.example / contracts/README.md).
  *
  * Stellar modules load via require() only when selected — Game can import this
- * file without a static dependency on @stellar/* / lib/soroban / lib/auction.
+ * file without a static dependency on @stellar/* or lib/soroban.
  */
 
 import type { ItemRegistry } from '@/lib/registry';

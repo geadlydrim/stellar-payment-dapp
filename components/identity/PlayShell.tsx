@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { PlayApp } from '@/components/game/PlayApp';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { getMarketPorts } from '@/lib/adapters';
+import { getGameRegistry } from '@/lib/game';
 import { shortOwnerId } from '@/lib/identity/owner';
 import { useWalletSession } from './WalletSessionProvider';
 
@@ -114,6 +116,7 @@ export function PlayShell() {
   const { hydrated, connecting, session, connect, disconnect } =
     useWalletSession();
   const [error, setError] = useState<string | null>(null);
+  const ports = useMemo(() => getMarketPorts(getGameRegistry()), []);
 
   const handleConnect = async () => {
     setError(null);
@@ -166,7 +169,6 @@ export function PlayShell() {
               <span className="font-mono text-[var(--qf-text-2)]">
                 {shortOwnerId(session.ownerId)}
               </span>{' '}
-              — inventory is for this wallet only.
             </p>
             <button
               type="button"
@@ -179,7 +181,11 @@ export function PlayShell() {
           </div>
         </div>
       )}
-      <PlayApp ownerId={session.ownerId} />
+      <PlayApp
+        ownerId={session.ownerId}
+        nftBridge={ports.nftBridge}
+        adapter={ports.adapter}
+      />
     </div>
   );
 }
