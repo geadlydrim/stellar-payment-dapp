@@ -84,7 +84,7 @@ export function SaleTab({
           List for fixed price
         </h3>
         <p className="text-xs text-[var(--qf-text-3)] mb-3">
-          Only items you've exported from Play can be listed.
+          Only items you exported from Play can be listed.
         </p>
         <div className="grid gap-2 sm:grid-cols-[1fr_100px_auto]">
           <TokenSelect
