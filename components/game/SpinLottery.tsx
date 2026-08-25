@@ -14,6 +14,7 @@ import {
   type Tier,
   type WeaponType,
 } from '@/lib/game';
+import { toUserMessage } from '@/lib/user-error';
 
 interface SpinLotteryProps {
   ownerId: string;
@@ -131,7 +132,7 @@ export function SpinLottery({ ownerId, onSpun }: SpinLotteryProps) {
         setResult(spun);
         onSpun(item, spun);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Spin failed');
+        setError(toUserMessage(e, { fallback: "Couldn't complete that spin." }));
       }
       setSpinning(false);
     };

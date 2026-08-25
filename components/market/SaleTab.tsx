@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { FixedPriceListing, FixedPricePort } from '@/lib/ports';
-import { PortError } from '@/lib/adapters';
+import { toUserMessage } from '@/lib/user-error';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import {
   availableToList,
@@ -19,7 +19,6 @@ interface SaleTabProps {
   ownerId: string;
   /** Signer / counterparty for port calls (guest on mock, wallet on stellar). */
   actorId: string;
-  demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
@@ -32,7 +31,6 @@ export function SaleTab({
   port,
   ownerId,
   actorId,
-  demoBuyerId,
   onToast,
   refreshKey,
   onMutate,
@@ -67,7 +65,7 @@ export function SaleTab({
       onMutate();
       await reload();
     } catch (e) {
-      onToast(e instanceof PortError || e instanceof Error ? e.message : 'Failed');
+      onToast(toUserMessage(e));
     } finally {
       setBusy(false);
     }
@@ -86,7 +84,7 @@ export function SaleTab({
           List for fixed price
         </h3>
         <p className="text-xs text-[var(--qf-text-3)] mb-3">
-          Only <code className="text-[11px]">AsNft</code> items with a tokenId can be listed.
+          Only items you've exported from Play can be listed.
         </p>
         <div className="grid gap-2 sm:grid-cols-[1fr_100px_auto]">
           <TokenSelect
@@ -140,7 +138,7 @@ export function SaleTab({
           <p className="text-xs text-[var(--qf-text-4)]">No active fixed-price listings.</p>
         )}
         {listings.map((listing) => {
-          const item = itemForToken(registry, listing.tokenId);
+          const item = itemForToken(registry, listing.tokenId, listing.seller);
           const mine = listing.seller === actorId;
           return (
             <article
@@ -198,26 +196,6 @@ export function SaleTab({
                     }}
                   >
                     Buy
-                  </button>
-                )}
-                {mine && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    title={`Simulate purchase as ${demoBuyerId}`}
-                    onClick={() =>
-                      run(
-                        () =>
-                          port.buy({
-                            listingId: listing.listingId,
-                            buyer: demoBuyerId,
-                          }),
-                        `Sold to ${demoBuyerId}`
-                      )
-                    }
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer border border-dashed border-[var(--qf-card-border)] bg-transparent text-[var(--qf-text-3)]"
-                  >
-                    Demo buy
                   </button>
                 )}
               </div>

@@ -207,14 +207,14 @@ export function equipWeapon(
   if (item.ownerId !== ownerId) throw new GameActionError('Not your item');
   if (!isUsable(item)) {
     throw new GameActionError(
-      `Cannot equip: item is ${item.state} (must be InGame)`
+      "This item isn't in your bag. Bring it back to Play first."
     );
   }
   if (!isWeaponItem(item.meta.kind)) {
     throw new GameActionError('Only weapons can be equipped');
   }
   if (!parseWeaponAttrs(item.meta.attrs)) {
-    throw new GameActionError('Weapon is missing attrs');
+    throw new GameActionError("This weapon can't be equipped.");
   }
   setEquippedItemId(item.id, ownerId);
   return item;
@@ -237,14 +237,14 @@ export function useCharm(
   if (item.ownerId !== ownerId) throw new GameActionError('Not your item');
   if (!isUsable(item)) {
     throw new GameActionError(
-      `Cannot use: item is ${item.state} (must be InGame)`
+      "This item isn't in your bag. Bring it back to Play first."
     );
   }
   if (!isCharmItem(item.meta.kind, item.meta.attrs)) {
     throw new GameActionError('Only Power Charms can be used this way');
   }
   const attrs = parseCharmAttrs(item.meta.attrs);
-  if (!attrs) throw new GameActionError('Charm is missing attrs');
+  if (!attrs) throw new GameActionError("This charm can't be used.");
 
   const buff: DamageBuff = {
     multiplier: attrs.buffMultiplier,
@@ -306,7 +306,7 @@ export function requestExportLock(
   if (!item) throw new GameActionError('Item not found');
   if (item.ownerId !== ownerId) throw new GameActionError('Not your item');
   if (!isUsable(item)) {
-    throw new GameActionError(`Cannot export: item is already ${item.state}`);
+    throw new GameActionError('This item is already an NFT.');
   }
   if (getEquippedItemId(ownerId) === itemId) setEquippedItemId(null, ownerId);
   return getGameRegistry().lockForTrade(itemId, ownerId);

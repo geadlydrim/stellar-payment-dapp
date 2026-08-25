@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlayApp } from '@/components/game/PlayApp';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { getMarketPorts } from '@/lib/adapters';
+import { getMarketPorts, reconcileSessionAsNft } from '@/lib/adapters';
 import { getGameRegistry } from '@/lib/game';
 import { shortOwnerId } from '@/lib/identity/owner';
+import { toUserMessage } from '@/lib/user-error';
 import { useWalletSession } from './WalletSessionProvider';
 
 function PlayFrame({
@@ -112,6 +113,89 @@ function ConnectGate({
   );
 }
 
+function PlayConnected({
+  ownerId,
+  kind,
+  onDisconnect,
+  ports,
+}: {
+  ownerId: string;
+  kind: 'guest' | 'wallet';
+  onDisconnect: () => void;
+  ports: ReturnType<typeof getMarketPorts>;
+}) {
+  const [bagReady, setBagReady] = useState(ports.adapter !== 'stellar');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (ports.adapter !== 'stellar') {
+        setBagReady(true);
+        return;
+      }
+      setBagReady(false);
+      try {
+        await reconcileSessionAsNft(getGameRegistry(), ports, ownerId);
+      } catch {
+        /* inventory still loads */
+      }
+      if (!cancelled) setBagReady(true);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [ports, ownerId]);
+
+  if (!bagReady) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center text-[var(--qf-text-3)] text-sm"
+        style={{
+          background:
+            'linear-gradient(180deg, var(--qf-bg-1), var(--qf-bg-2) 60%, var(--qf-bg-1))',
+        }}
+      >
+        Checking your NFTs…
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {kind === 'wallet' && (
+        <div
+          data-hook="play-session-banner"
+          className="border-b border-[var(--qf-card-border)]"
+          style={{ background: 'var(--qf-header-bg)' }}
+        >
+          <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
+            <p className="text-xs text-[var(--qf-text-3)] min-w-0">
+              Playing as{' '}
+              <span className="font-mono text-[var(--qf-text-2)]">
+                {shortOwnerId(ownerId)}
+              </span>{' '}
+            </p>
+            <button
+              type="button"
+              data-hook="play-disconnect"
+              onClick={onDisconnect}
+              className="shrink-0 text-xs text-[var(--qf-text-2)] border border-[var(--qf-card-border)] bg-transparent rounded-full py-1 px-2.5 cursor-pointer"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+      )}
+      <PlayApp
+        ownerId={ownerId}
+        nftBridge={ports.nftBridge}
+        adapter={ports.adapter}
+      />
+    </div>
+  );
+}
+
 export function PlayShell() {
   const { hydrated, connecting, session, connect, disconnect } =
     useWalletSession();
@@ -124,9 +208,9 @@ export function PlayShell() {
       await connect();
     } catch (e) {
       setError(
-        e instanceof Error
-          ? e.message
-          : 'Wallet connection failed — try Freighter on testnet'
+        toUserMessage(e, {
+          fallback: "Couldn't connect. Open Freighter and try again.",
+        })
       );
     }
   };
@@ -156,36 +240,11 @@ export function PlayShell() {
   }
 
   return (
-    <div>
-      {session.kind === 'wallet' && (
-        <div
-          data-hook="play-session-banner"
-          className="border-b border-[var(--qf-card-border)]"
-          style={{ background: 'var(--qf-header-bg)' }}
-        >
-          <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
-            <p className="text-xs text-[var(--qf-text-3)] min-w-0">
-              Playing as{' '}
-              <span className="font-mono text-[var(--qf-text-2)]">
-                {shortOwnerId(session.ownerId)}
-              </span>{' '}
-            </p>
-            <button
-              type="button"
-              data-hook="play-disconnect"
-              onClick={disconnect}
-              className="shrink-0 text-xs text-[var(--qf-text-2)] border border-[var(--qf-card-border)] bg-transparent rounded-full py-1 px-2.5 cursor-pointer"
-            >
-              Disconnect
-            </button>
-          </div>
-        </div>
-      )}
-      <PlayApp
-        ownerId={session.ownerId}
-        nftBridge={ports.nftBridge}
-        adapter={ports.adapter}
-      />
-    </div>
+    <PlayConnected
+      ownerId={session.ownerId}
+      kind={session.kind}
+      onDisconnect={disconnect}
+      ports={ports}
+    />
   );
 }

@@ -65,14 +65,18 @@ CI runs the same commands (plus lint, typecheck, and `npm run build`) — see [`
 
 ## Deploy contracts (testnet)
 
-**Order matters:** deploy and initialize **`item-nft` first**, then auction / fixed-price / offer-board (each takes the NFT contract id).
+**Order matters:** deploy and initialize **`item-nft` first**, then auction / fixed-price / offer-board (sale and trade bake `nft_contract` at `initialize`).
+
+Players **self-mint** (`mint(signer, signer, item_id)`). Do **not** run `set_minter` for every Freighter wallet. `set_minter` is optional and only for mint-to-other / airdrop.
+
+item-nft has **no upgrade** entrypoint. A new WASM is a new `C…`. Redeploy fixed-price and offer-board against that NFT id; auction can keep its ID (each listing passes `nft_contract`). Tokens on the previous item-nft `C…` are abandoned.
 
 | Step | Crate | Notes |
 |------|-------|--------|
-| 1 | [`contracts/item-nft`](contracts/item-nft/README.md) | `initialize` + optional `set_minter` for the bridge key |
+| 1 | [`contracts/item-nft`](contracts/item-nft/README.md) | `initialize(admin)`. Players self-mint; optional `set_minter` only for mint-to-other / airdrop |
 | 2 | [`contracts/auction`](contracts/auction/README.md) | **Redeploy** for NFT settle — storage layout changed; do not reuse an old XLM-only auction ID for Marketplace Auction |
-| 3 | [`contracts/fixed-price`](contracts/fixed-price/README.md) | `initialize` with native SAC + `item-nft` id |
-| 4 | [`contracts/offer-board`](contracts/offer-board/README.md) | Same: native SAC + `item-nft` id |
+| 3 | [`contracts/fixed-price`](contracts/fixed-price/README.md) | `initialize` with native SAC + **current** `item-nft` id |
+| 4 | [`contracts/offer-board`](contracts/offer-board/README.md) | Same: native SAC + **current** `item-nft` id |
 
 Workspace overview, env placeholders, and event topics: [`contracts/README.md`](contracts/README.md).
 
@@ -84,7 +88,7 @@ Workspace overview, env placeholders, and event topics: [`contracts/README.md`](
 | `.env.local` | Local / host secrets store | Contract IDs + `NEXT_PUBLIC_*` (public to the browser; still don’t commit) |
 | GitHub Actions | Not required for current CI (tests only; no deploy job yet) | Add later if you automate deploy |
 
-After deploy, copy the `C…` contract IDs into `.env.local` (see `.env.example`). Keep `NEXT_PUBLIC_MARKET_ADAPTER=mock` until Integration wires `lib/adapters/stellar/`.
+After deploy, copy the `C…` contract IDs into `.env.local` (see `.env.example`) and set `NEXT_PUBLIC_MARKET_ADAPTER=stellar`. Restart `npm run dev` after changing env. Players do not need `set_minter` to export.
 
 **Auction:** Marketplace Auction must use the **NFT-capable** auction deploy (storage layout changed vs the original XLM-only contract). Details in [`contracts/auction/README.md`](contracts/auction/README.md).
 

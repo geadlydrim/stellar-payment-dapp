@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { AuctionListing, AuctionPort } from '@/lib/ports';
-import { PortError } from '@/lib/adapters';
+import { toUserMessage } from '@/lib/user-error';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import { formatEnd, itemForToken, listableForOwner, availableToList, listingSelectEmptyLabel } from './market-utils';
 
@@ -12,7 +12,6 @@ interface AuctionTabProps {
   port: AuctionPort;
   ownerId: string;
   actorId: string;
-  demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
@@ -24,7 +23,6 @@ export function AuctionTab({
   port,
   ownerId,
   actorId,
-  demoBuyerId,
   onToast,
   refreshKey,
   onMutate,
@@ -36,6 +34,7 @@ export function AuctionTab({
   const [durationSec, setDurationSec] = useState('300');
   const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const ownedListable = listableForOwner(registry, ownerId);
   const listable = availableToList(ownedListable, listedTokenIds);
@@ -58,6 +57,11 @@ export function AuctionTab({
   }, [reload, refreshKey]);
 
   useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
     if (tokenId && listedTokenIds.has(tokenId)) setTokenId('');
   }, [tokenId, listedTokenIds]);
 
@@ -69,7 +73,7 @@ export function AuctionTab({
       onMutate();
       await reload();
     } catch (e) {
-      onToast(e instanceof PortError || e instanceof Error ? e.message : 'Failed');
+      onToast(toUserMessage(e));
     } finally {
       setBusy(false);
     }
@@ -153,9 +157,9 @@ export function AuctionTab({
           <p className="text-xs text-[var(--qf-text-4)]">No NFT auctions yet.</p>
         )}
         {auctions.map((auction) => {
-          const item = itemForToken(registry, auction.tokenId);
+          const item = itemForToken(registry, auction.tokenId, auction.seller);
           const mine = auction.seller === actorId;
-          const ended = Date.now() >= auction.endTime;
+          const ended = nowMs >= auction.endTime;
           const key = String(auction.auctionId);
           const bidVal =
             bidAmounts[key] ??
@@ -231,29 +235,12 @@ export function AuctionTab({
                     </button>
                   </>
                 )}
-                {mine && !ended && port.placeBid && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      run(
-                        () =>
-                          port.placeBid!({
-                            auctionId: auction.auctionId,
-                            bidder: demoBuyerId,
-                            amountXlm: String(
-                              Number(auction.highestBidXlm ?? auction.startPriceXlm) + 1
-                            ),
-                          }),
-                        'Demo bid placed'
-                      )
-                    }
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer border border-dashed border-[var(--qf-card-border)] bg-transparent text-[var(--qf-text-3)]"
-                  >
-                    Demo bid
-                  </button>
+                {port.close && mine && !ended && (
+                  <span className="text-[11px] text-[var(--qf-text-4)]">
+                    Settle after the timer ends
+                  </span>
                 )}
-                {port.close && (ended || mine) && (
+                {port.close && ended && (
                   <button
                     type="button"
                     disabled={busy}
@@ -265,8 +252,8 @@ export function AuctionTab({
                             caller: actorId,
                           }),
                         auction.highestBidder
-                          ? `Closed — winner ${auction.highestBidder}`
-                          : 'Closed — no bids'
+                          ? 'Closed — NFT sent to the highest bidder'
+                          : 'Closed — no bids, NFT returned'
                       )
                     }
                     className="rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer border border-[var(--qf-card-border)] bg-transparent text-[var(--qf-text-2)]"

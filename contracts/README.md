@@ -4,7 +4,7 @@ Phase D on-chain settlement for Stellar4 Marketplace.
 
 | Crate | Role | Port alignment |
 |-------|------|----------------|
-| [`item-nft/`](./item-nft/) | Mint / burn / transfer item NFTs | `NftBridge` |
+| [`item-nft/`](./item-nft/) | Mint / burn / transfer item NFTs (players self-mint; `set_minter` optional for mint-to-other) | `NftBridge` |
 | [`auction/`](./auction/) | XLM escrow + optional NFT settle on close | `AuctionPort` |
 | [`fixed-price/`](./fixed-price/) | Fixed-price sale (XLM + NFT) | `FixedPricePort` |
 | [`offer-board/`](./offer-board/) | Offer-board trade accept/reject | `OfferBoardPort` |
@@ -65,10 +65,10 @@ See each crate README for deploy steps and payload shapes.
 
 ## Deploy order (testnet)
 
-1. **item-nft** — deploy WASM → `initialize(admin)` → optional `set_minter` for the NftBridge key  
-2. **auction** — deploy **new** WASM (NFT settle) → `initialize(native SAC)` — see [auction migration](./auction/README.md); do not reuse a pre-NFT auction ID for Marketplace  
-3. **fixed-price** — deploy → `initialize(xlm_token, nft_contract)`  
-4. **offer-board** — deploy → `initialize(xlm_token, nft_contract)`
+1. **item-nft** — deploy WASM → `initialize(admin)`. Players self-mint (`mint(self, self, item_id)`); `set_minter` is optional for mint-to-other / airdrop only. This crate has no upgrade — new WASM ⇒ new `C…`. Tokens on a previous item-nft ID are abandoned.  
+2. **auction** — deploy **new** WASM (NFT settle) → `initialize(native SAC)` — see [auction migration](./auction/README.md); do not reuse a pre-NFT auction ID for Marketplace. After an item-nft cutover, the existing auction ID may stay (listings pass `nft_contract`).  
+3. **fixed-price** — deploy → `initialize(xlm_token, nft_contract)` — **redeploy** if item-nft ID changed (baked at init)  
+4. **offer-board** — deploy → `initialize(xlm_token, nft_contract)` — **redeploy** if item-nft ID changed
 
 Per-crate invoke examples live in each README. Copy resulting `C…` IDs into root `.env.example` / `.env.local`.
 
@@ -84,5 +84,5 @@ Per-crate invoke examples live in each README. Copy resulting `C…` IDs into ro
 
 ## Note for Platform / CI
 
-- `cargo test` in `contracts/` is the contract unit-test entrypoint for CI (14 tests).
+- `cargo test` in `contracts/` is the contract unit-test entrypoint for CI (18 tests).
 - If `cargo update` pulls `ed25519-dalek` 3.x, re-pin: `cargo update -p ed25519-dalek@3.0.0 --precise 2.2.0` (Soroban SDK 22 testutils).

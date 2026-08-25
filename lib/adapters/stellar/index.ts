@@ -24,6 +24,7 @@ export { StellarNftBridge } from './nft-bridge';
 export { StellarFixedPricePort } from './fixed-price';
 export { StellarAuctionPort } from './auction';
 export { StellarOfferBoardPort } from './offer-board';
+export { reconcileStellarAsNft } from './reconcile';
 
 export interface StellarMarketPorts {
   nftBridge: NftBridge;

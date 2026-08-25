@@ -38,7 +38,7 @@ describe('mock market ports', () => {
 
     await assert.rejects(
       () => ports.nftBridge.importFromNft(tokenId, owner),
-      /listed/
+      /listing/
     );
 
     const active = await ports.fixedPrice.listActive!();
@@ -141,7 +141,7 @@ describe('mock market ports', () => {
           seller: 'p',
           priceXlm: '1',
         }),
-      /No item found/
+      /Couldn't find that NFT/
     );
     registry.lockForTrade(item.id, 'p');
     // still no tokenId
@@ -153,7 +153,7 @@ describe('mock market ports', () => {
           startPriceXlm: '1',
           durationSec: 60,
         }),
-      /No item found/
+      /Couldn't find that NFT/
     );
   });
 });

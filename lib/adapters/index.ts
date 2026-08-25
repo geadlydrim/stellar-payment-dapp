@@ -106,5 +106,24 @@ export function resetMarketPorts(): void {
   resetMockMarketPorts();
 }
 
+/**
+ * Stellar: revert leftover AsNft rows (old contract token ids / colliding "0").
+ * Mock: no-op. Safe to call from PlayShell / MarketApp (not Game).
+ */
+export async function reconcileSessionAsNft(
+  registry: ItemRegistry,
+  ports: MarketPorts,
+  ownerId: string
+): Promise<{ reverted: number }> {
+  if (ports.adapter !== 'stellar' || !ownerId) return { reverted: 0 };
+  const { reconcileStellarAsNft, requireStellarContractIds } = loadStellar();
+  const { revertedIds } = await reconcileStellarAsNft({
+    registry,
+    ownerId,
+    nftContractId: requireStellarContractIds().itemNft,
+  });
+  return { reverted: revertedIds.length };
+}
+
 /** Re-export stellar types without forcing a runtime load. */
 export type { StellarMarketPorts, StellarContractIds } from './stellar';

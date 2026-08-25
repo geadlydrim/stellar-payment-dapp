@@ -32,20 +32,19 @@ describe('market inventory owner = actor (identity 04)', () => {
     );
   });
 
-  it('Demo buy stays a different string than inventory/session owner', () => {
+  it('does not ship Demo buy / Demo bid / simulate-offer buttons', () => {
     const app = src('components/market/MarketApp.tsx');
-    assert.match(app, /DEMO_BUYER_ID = 'stellar4-demo-buyer'/);
-    assert.match(app, /demoBuyerId=\{DEMO_BUYER_ID\}/);
-    assert.doesNotMatch(app, /demoBuyerId=\{inventoryOwnerId\}/);
-    assert.doesNotMatch(app, /demoBuyerId=\{actorId\}/);
+    assert.doesNotMatch(app, /DEMO_BUYER_ID|demoBuyerId|stellar4-demo-buyer/);
 
     const sale = src('components/market/SaleTab.tsx');
-    assert.match(
-      sale,
-      /title=\{`Simulate purchase as \$\{demoBuyerId\}`\}[\s\S]*buyer: demoBuyerId/
-    );
-    assert.doesNotMatch(sale, /buyer: ownerId/);
-    assert.doesNotMatch(sale, /buyer: inventoryOwnerId/);
+    assert.doesNotMatch(sale, /Demo buy|demoBuyerId/);
+    assert.match(sale, /buyer: actorId/);
+
+    const auction = src('components/market/AuctionTab.tsx');
+    assert.doesNotMatch(auction, /Demo bid|demoBuyerId/);
+
+    const trade = src('components/market/TradeTab.tsx');
+    assert.doesNotMatch(trade, /Simulate buyer|demoBuyerId/);
   });
 
   it('List buttons stay gated on actorId; boards still load global listings', () => {

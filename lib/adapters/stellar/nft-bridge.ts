@@ -8,6 +8,7 @@ import {
 import { getAddress } from '@/lib/wallet';
 import type { StellarContractIds } from './env';
 import { tokenIdToU32, u32ToTokenId } from './ids';
+import { mintFailureToPortError } from './contract-error';
 import {
   addressScVal,
   assertStellarAddress,
@@ -60,7 +61,7 @@ export class StellarNftBridge implements NftBridge {
       (async () => {
         const addr = await getAddress();
         if (!addr) {
-          throw new PortError('Connect a wallet before exporting / importing NFTs');
+          throw new PortError('Connect a wallet first to export or import.');
         }
         return addr;
       });
@@ -75,7 +76,7 @@ export class StellarNftBridge implements NftBridge {
         );
         const rawId = result.returnValue;
         if (rawId === undefined || rawId === null) {
-          throw new PortError('mint succeeded but returned no token_id');
+          throw new PortError("Couldn't create the NFT. Try again.");
         }
         return u32ToTokenId(rawId as number | bigint | string);
       });
@@ -86,13 +87,13 @@ export class StellarNftBridge implements NftBridge {
     ownerId: string
   ): Promise<{ tokenId: TokenId }> {
     const item = this.registry.get(itemId);
-    if (!item) throw new PortError(`Item not found: ${itemId}`);
+    if (!item) throw new PortError('Item not found.');
 
-    // Reject guest before wallet prompt / lock — stellar must not mint the demo bag.
+    // Reject guest before wallet prompt / lock — stellar must not mint the guest bag.
     assertNotGuestExportOwner(ownerId);
 
     if (item.ownerId !== ownerId) {
-      throw new PortError('Not your item');
+      throw new PortError("That's not your item.");
     }
 
     if (item.state === 'AsNft' && item.tokenId) {
@@ -105,10 +106,19 @@ export class StellarNftBridge implements NftBridge {
     if (item.state === 'InGame') {
       this.registry.lockForTrade(itemId, ownerId);
     } else if (item.state !== 'LockedForTrade') {
-      throw new PortError(`Cannot export item in state ${item.state}`);
+      throw new PortError("This item isn't ready to export.");
     }
 
-    const tokenId = await this.mintToken(itemId, signer);
+    let tokenId: TokenId;
+    try {
+      tokenId = await this.mintToken(itemId, signer);
+    } catch (err) {
+      const locked = this.registry.get(itemId);
+      if (locked?.state === 'LockedForTrade') {
+        this.registry.unlock(itemId, ownerId);
+      }
+      throw mintFailureToPortError(err);
+    }
 
     this.registry.markAsNft(itemId, tokenId);
     // v2: no transferOwnership — align Registry owner with chain `to` / signer.
@@ -121,20 +131,20 @@ export class StellarNftBridge implements NftBridge {
     tokenId: TokenId,
     ownerId: string
   ): Promise<{ itemId: ItemId }> {
-    if (!tokenId) throw new PortError('tokenId is required');
+    if (!tokenId) throw new PortError('Pick an NFT first.');
     if (await this.isTokenListed(tokenId)) {
       throw new PortError(
-        'NFT is listed on the marketplace — cancel the listing before importing'
+        'Cancel the marketplace listing before bringing this NFT back to Play.'
       );
     }
 
-    const item = findItemByTokenId(this.registry, tokenId);
-    if (!item) throw new PortError(`No item found for tokenId ${tokenId}`);
+    const item = findItemByTokenId(this.registry, tokenId, ownerId);
+    if (!item) throw new PortError("Couldn't find that NFT in your inventory.");
     if (item.ownerId !== ownerId) {
-      throw new PortError('Not your NFT');
+      throw new PortError("That's not your NFT.");
     }
     if (item.state !== 'AsNft') {
-      throw new PortError(`Cannot import: item is ${item.state}`);
+      throw new PortError("This item isn't an NFT you can bring back to Play right now.");
     }
 
     const signer = await this.resolveSigner();
@@ -143,7 +153,7 @@ export class StellarNftBridge implements NftBridge {
     // Session ownerId already matched Registry owner above; chain owner must be signer.
     const onChainOwner = await this.ownerOf(tokenId);
     if (onChainOwner !== signer) {
-      throw new PortError('Connected wallet is not the on-chain NFT owner');
+      throw new PortError("This wallet doesn't own that NFT.");
     }
 
     const onChainId = tokenIdToU32(tokenId);

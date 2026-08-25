@@ -45,7 +45,7 @@ export class MockOfferBoardPort implements OfferBoardPort {
   }): Promise<TradeListing> {
     requireListableOwned(this.registry, params.tokenId, params.seller);
     if (this.isActiveHere(params.tokenId) || this.isTokenBusyElsewhere(params.tokenId)) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const listing: TradeListing = {
@@ -67,21 +67,21 @@ export class MockOfferBoardPort implements OfferBoardPort {
     offerTokenIds: TokenId[];
   }): Promise<TradeOffer> {
     const listing = this.requireListing(params.listingId);
-    if (!listing.active) throw new PortError('Trade listing is not active');
+    if (!listing.active) throw new PortError('This trade listing is no longer open.');
     if (listing.seller === params.buyer) {
-      throw new PortError('Cannot offer on your own listing');
+      throw new PortError("You can't offer on your own listing.");
     }
 
     parseXlm(params.xlm);
     const offerTokenIds = params.offerTokenIds ?? [];
     if (Number(params.xlm) <= 0 && offerTokenIds.length === 0) {
-      throw new PortError('Offer must include XLM and/or at least one tokenId');
+      throw new PortError('Add some XLM, an NFT, or both.');
     }
 
     for (const tid of offerTokenIds) {
       requireListableOwned(this.registry, tid, params.buyer);
       if (tid === listing.tokenId) {
-        throw new PortError('Cannot offer the listed token itself');
+        throw new PortError("You can't offer the same NFT that's listed.");
       }
     }
 
@@ -104,22 +104,26 @@ export class MockOfferBoardPort implements OfferBoardPort {
   }): Promise<void> {
     const offer = this.requireOffer(params.offerId);
     if (offer.status !== 'pending') {
-      throw new PortError(`Offer is ${offer.status}`);
+      throw new PortError('This offer is no longer pending.');
     }
     const listing = this.requireListing(offer.listingId);
-    if (!listing.active) throw new PortError('Trade listing is not active');
+    if (!listing.active) throw new PortError('This trade listing is no longer open.');
     if (listing.seller !== params.seller) {
-      throw new PortError('Only the seller can accept');
+      throw new PortError('Only the seller can accept.');
     }
 
-    const listedItem = findItemByTokenId(this.registry, listing.tokenId);
-    if (!listedItem) throw new PortError('Listed item missing');
+    const listedItem = findItemByTokenId(
+      this.registry,
+      listing.tokenId,
+      listing.seller
+    );
+    if (!listedItem) throw new PortError("That listing's item is missing. Refresh and try again.");
 
     // Transfer listed NFT → buyer; offered NFTs → seller (XLM is mock-only)
     transferItemOwner(this.registry, listedItem.id, offer.buyer);
     for (const tid of offer.offerTokenIds) {
-      const offered = findItemByTokenId(this.registry, tid);
-      if (!offered) throw new PortError(`Offered token missing: ${tid}`);
+      const offered = findItemByTokenId(this.registry, tid, offer.buyer);
+      if (!offered) throw new PortError("An offered NFT is missing. Refresh and try again.");
       transferItemOwner(this.registry, offered.id, listing.seller);
     }
 
@@ -143,11 +147,11 @@ export class MockOfferBoardPort implements OfferBoardPort {
   }): Promise<void> {
     const offer = this.requireOffer(params.offerId);
     if (offer.status !== 'pending') {
-      throw new PortError(`Offer is ${offer.status}`);
+      throw new PortError('This offer is no longer pending.');
     }
     const listing = this.requireListing(offer.listingId);
     if (listing.seller !== params.seller) {
-      throw new PortError('Only the seller can reject');
+      throw new PortError('Only the seller can reject.');
     }
     offer.status = 'rejected';
     this.persist();
@@ -158,9 +162,9 @@ export class MockOfferBoardPort implements OfferBoardPort {
     seller: string;
   }): Promise<void> {
     const listing = this.requireListing(params.listingId);
-    if (!listing.active) throw new PortError('Listing is not active');
+    if (!listing.active) throw new PortError('This listing is no longer open.');
     if (listing.seller !== params.seller) {
-      throw new PortError('Only the seller can cancel');
+      throw new PortError('Only the seller can cancel.');
     }
     listing.active = false;
     for (const o of this.store.offers) {
@@ -196,7 +200,7 @@ export class MockOfferBoardPort implements OfferBoardPort {
     const listing = this.store.listings.find(
       (l) => String(l.listingId) === String(listingId)
     );
-    if (!listing) throw new PortError(`Trade listing not found: ${listingId}`);
+    if (!listing) throw new PortError('Trade listing not found.');
     return listing;
   }
 
@@ -204,7 +208,7 @@ export class MockOfferBoardPort implements OfferBoardPort {
     const offer = this.store.offers.find(
       (o) => String(o.offerId) === String(offerId)
     );
-    if (!offer) throw new PortError(`Offer not found: ${offerId}`);
+    if (!offer) throw new PortError('Offer not found.');
     return offer;
   }
 }

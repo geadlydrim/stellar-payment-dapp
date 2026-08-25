@@ -9,6 +9,7 @@ import {
 import type { StellarContractIds } from './env';
 import { listingIdToU32, tokenIdToU32, u32ToTokenId } from './ids';
 import { requireListableChainOwner } from './listable';
+import { auctionCloseFailureToPortError } from './contract-error';
 import {
   addressScVal,
   assertStellarAddress,
@@ -65,13 +66,13 @@ export class StellarAuctionPort implements AuctionPort {
     );
     parseXlm(params.startPriceXlm);
     if (params.durationSec <= 0) {
-      throw new PortError('durationSec must be > 0');
+      throw new PortError('Enter a duration greater than 0 seconds.');
     }
     if (
       (await this.isActiveHere(params.tokenId)) ||
       (await this.isTokenBusyElsewhere(params.tokenId))
     ) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const result = await invokeOrThrow(
@@ -92,7 +93,7 @@ export class StellarAuctionPort implements AuctionPort {
         ? Number(result.returnValue as number | bigint)
         : undefined;
     if (auctionId === undefined || !Number.isInteger(auctionId)) {
-      throw new PortError('create_nft_auction returned no auction id');
+      throw new PortError("Couldn't start the auction. Try again.");
     }
 
     const endTime = Date.now() + params.durationSec * 1000;
@@ -137,19 +138,35 @@ export class StellarAuctionPort implements AuctionPort {
     const tokenIdOpt = before.token_id;
     if (tokenIdOpt == null) {
       throw new PortError(
-        'Auction has no NFT token_id — use the redeployed NFT-capable auction contract'
+        "This auction isn't an NFT listing. Start a new one."
       );
     }
     const tokenId = u32ToTokenId(tokenIdOpt as number | bigint);
-    const item = findItemByTokenId(this.registry, tokenId);
-    if (!item) throw new PortError('Auction item missing from registry');
-
-    await invokeOrThrow(
-      this.contracts.auction,
-      'close',
-      [u32ScVal(id)],
-      params.caller
+    const item = findItemByTokenId(
+      this.registry,
+      tokenId,
+      String(before.seller)
     );
+    if (!item) throw new PortError("That auction's item is missing. Refresh and try again.");
+
+    const endSec = Number(before.end_time ?? 0);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec < endSec) {
+      throw new PortError(
+        'This auction is still running. Wait for the timer, then settle.'
+      );
+    }
+
+    try {
+      await invokeOrThrow(
+        this.contracts.auction,
+        'close',
+        [u32ScVal(id)],
+        params.caller
+      );
+    } catch (err) {
+      throw auctionCloseFailureToPortError(err);
+    }
 
     const winner = parseOptionalAddress(before.highest_bidder);
     if (winner) {
@@ -213,7 +230,7 @@ export class StellarAuctionPort implements AuctionPort {
       u32ScVal(id),
     ]);
     if (!raw || typeof raw !== 'object') {
-      throw new PortError(`Auction not found: ${id}`);
+      throw new PortError('Auction not found.');
     }
     return raw as Record<string, unknown>;
   }

@@ -13,15 +13,29 @@ export class PortError extends Error {
   }
 }
 
-/** Find item by NFT tokenId via MemoryItemRegistry.listAll when available. */
+/**
+ * Find item by NFT tokenId via MemoryItemRegistry.listAll when available.
+ * After an item-nft redeploy, several AsNft rows can share "0"/"1"/… —
+ * pass `preferOwnerId` (seller/buyer) so listing uses that wallet's row.
+ * If several rows still match, pick the newest `updatedAt`.
+ */
 export function findItemByTokenId(
   registry: ItemRegistry,
-  tokenId: TokenId
+  tokenId: TokenId,
+  preferOwnerId?: string
 ): Item | undefined {
-  if (registry instanceof MemoryItemRegistry) {
-    return registry.listAll().find((i) => i.tokenId === tokenId);
+  if (!(registry instanceof MemoryItemRegistry)) return undefined;
+  const matches = registry.listAll().filter((i) => i.tokenId === tokenId);
+  if (matches.length === 0) return undefined;
+
+  const newest = (items: Item[]) =>
+    items.reduce((a, b) => (a.updatedAt >= b.updatedAt ? a : b));
+
+  if (preferOwnerId) {
+    const owned = matches.filter((i) => i.ownerId === preferOwnerId);
+    if (owned.length > 0) return newest(owned);
   }
-  return undefined;
+  return newest(matches);
 }
 
 /** Require listable AsNft item owned by seller. */
@@ -30,17 +44,15 @@ export function requireListableOwned(
   tokenId: TokenId,
   seller: string
 ): Item {
-  const item = findItemByTokenId(registry, tokenId);
+  const item = findItemByTokenId(registry, tokenId, seller);
   if (!item) {
-    throw new PortError(`No item found for tokenId ${tokenId}`);
+    throw new PortError("Couldn't find that NFT in your inventory.");
   }
   if (item.ownerId !== seller) {
-    throw new PortError('Not the owner of this NFT');
+    throw new PortError("That's not your NFT.");
   }
   if (!isListable(item)) {
-    throw new PortError(
-      `Item is not listable (state=${item.state}, tokenId=${item.tokenId ?? 'none'})`
-    );
+    throw new PortError('Export this item from Play before listing it.');
   }
   return item;
 }
@@ -77,7 +89,7 @@ export function nextId(prefix: string): string {
 export function parseXlm(amount: string): number {
   const n = Number(amount);
   if (!Number.isFinite(n) || n < 0) {
-    throw new PortError(`Invalid XLM amount: ${amount}`);
+    throw new PortError('Enter a valid XLM amount.');
   }
   return n;
 }
