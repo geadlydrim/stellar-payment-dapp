@@ -1,6 +1,5 @@
 /**
- * Shared Stellar Wallets Kit instance for signing arbitrary Soroban XDR.
- * Separate from stellar-helper.ts (which keeps its kit private).
+ * Single Stellar Wallets Kit for `/play` and `/market`.
  */
 
 import {

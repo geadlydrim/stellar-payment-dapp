@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { isUsable, type Item } from '@/lib/registry';
+import type { NftBridge } from '@/lib/ports';
 import {
   TIER_COLORS,
   isWeaponItem,
@@ -10,13 +11,15 @@ import {
   getEquippedItemId,
 } from '@/lib/game';
 import { StateBadge, TierDot } from './StateBadge';
-import { ItemDetailModal } from './ItemDetailModal';
+import { ItemDetailModal, type ItemExportAdapter } from './ItemDetailModal';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
 interface InventoryPanelProps {
   ownerId: string;
   items: Item[];
   equippedId: string | null;
+  nftBridge: NftBridge;
+  adapter?: ItemExportAdapter;
   onEquip: (id: string) => void;
   onUseCharm: (id: string) => void;
   onChanged: () => void;
@@ -26,6 +29,8 @@ export function InventoryPanel({
   ownerId,
   items,
   equippedId,
+  nftBridge,
+  adapter,
   onEquip,
   onUseCharm,
   onChanged,
@@ -149,6 +154,8 @@ export function InventoryPanel({
           ownerId={ownerId}
           item={selectedFresh}
           equippedId={equippedId ?? getEquippedItemId(ownerId)}
+          nftBridge={nftBridge}
+          adapter={adapter}
           onClose={() => setSelected(null)}
           onChanged={() => {
             onChanged();

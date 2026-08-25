@@ -17,16 +17,16 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'BidDrift — Real-time auctions on Stellar',
+  title: 'Stellar4 — Play and Marketplace on Stellar',
   description:
-    'Create auctions, place escrowed XLM bids, and watch live updates on Stellar testnet.',
+    'Play Stellar4, then list items on Stellar4 Marketplace for sale, auction, or trade on Stellar testnet.',
 };
 
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var palette = localStorage.getItem('biddrift:palette');
-    var mode = localStorage.getItem('biddrift:mode');
+    var palette = localStorage.getItem('stellar4:palette') || localStorage.getItem('biddrift:palette');
+    var mode = localStorage.getItem('stellar4:mode') || localStorage.getItem('biddrift:mode');
     document.documentElement.dataset.palette = (palette === 'sherbet' || palette === 'mintfog') ? palette : 'mintfog';
     document.documentElement.dataset.mode = (mode === 'day' || mode === 'night') ? mode : 'day';
   } catch (e) {

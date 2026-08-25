@@ -9,7 +9,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { SaleTab } from './SaleTab';
 import { AuctionTab } from './AuctionTab';
 import { TradeTab } from './TradeTab';
-import { listableForOwner, shortId } from './market-utils';
+import { availableToList, listableForOwner, loadListedTokenIds, shortId } from './market-utils';
 
 export const DEMO_BUYER_ID = 'stellar4-demo-buyer';
 
@@ -40,6 +40,9 @@ export function MarketApp() {
   /** Same string as actorId — listable “yours” is never a second person. */
   const inventoryOwnerId = actorId;
   const [nfts, setNfts] = useState<Item[]>([]);
+  const [listedTokenIds, setListedTokenIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -52,6 +55,18 @@ export function MarketApp() {
     }
     setNfts(listableForOwner(registry, inventoryOwnerId));
   }, [registry, inventoryOwnerId]);
+
+  const reloadListed = useCallback(async () => {
+    if (!ports) {
+      setListedTokenIds(new Set());
+      return;
+    }
+    try {
+      setListedTokenIds(await loadListedTokenIds(ports));
+    } catch {
+      setListedTokenIds(new Set());
+    }
+  }, [ports]);
 
   useEffect(() => {
     setPorts(getMarketPorts(registry));
@@ -77,7 +92,8 @@ export function MarketApp() {
   useEffect(() => {
     if (!hydrated) return;
     reloadNfts();
-  }, [hydrated, reloadNfts, refreshKey]);
+    void reloadListed();
+  }, [hydrated, reloadNfts, reloadListed, refreshKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -87,10 +103,16 @@ export function MarketApp() {
 
   const onMutate = () => {
     reloadNfts();
+    void reloadListed();
     setRefreshKey((k) => k + 1);
   };
 
   const onToast = (msg: string) => setToast(msg);
+
+  const availableNfts = availableToList(nfts, listedTokenIds);
+  const listedOwnedCount = nfts.filter(
+    (i) => i.tokenId && listedTokenIds.has(i.tokenId)
+  ).length;
 
   return (
     <div
@@ -162,15 +184,7 @@ export function MarketApp() {
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-5">
         <p className="text-sm text-[var(--qf-text-3)]">
-          Sale, auction, and offer-board trade for exported NFTs. Adapter:{' '}
-          <span className="text-[var(--qf-text-2)] font-medium">
-            {ports?.adapter ?? '…'}
-          </span>
-          {ports?.adapter === 'mock'
-            ? ' — set NEXT_PUBLIC_MARKET_ADAPTER=stellar and contract IDs for on-chain.'
-            : actorId
-              ? ' — listing as connected wallet. Demo buy needs a second wallet.'
-              : ' — connect a testnet wallet (G…) before listing.'}
+          Sale, auction, and offer-board trade for exported NFTs.
         </p>
 
         {hydrated && (
@@ -178,19 +192,28 @@ export function MarketApp() {
             className="rounded-xl border border-[var(--qf-card-border)] px-4 py-3 text-xs text-[var(--qf-text-3)]"
             style={{ background: 'var(--qf-card-bg-soft)' }}
           >
-            Your listable NFTs:{' '}
-            {nfts.length === 0 ? (
+            Your NFTs available to list:{' '}
+            {availableNfts.length === 0 ? (
               <span>
-                none — export from{' '}
-                <a href="/play" className="underline text-[var(--qf-text-2)]">
-                  /play
-                </a>
+                {nfts.length === 0 ? (
+                  <>
+                    none — export from{' '}
+                    <a href="/play" className="underline text-[var(--qf-text-2)]">
+                      /play
+                    </a>
+                  </>
+                ) : (
+                  <>none — {listedOwnedCount} already listed (cancel to list elsewhere)</>
+                )}
               </span>
             ) : (
               <span className="text-[var(--qf-text-2)]">
-                {nfts
+                {availableNfts
                   .map((i) => `${i.meta.name} (${shortId(i.tokenId!)})`)
                   .join(' · ')}
+                {listedOwnedCount > 0
+                  ? ` · ${listedOwnedCount} already listed`
+                  : ''}
               </span>
             )}
           </div>
@@ -240,6 +263,7 @@ export function MarketApp() {
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
+                listedTokenIds={listedTokenIds}
               />
             )}
             {tab === 'auction' && (
@@ -252,6 +276,7 @@ export function MarketApp() {
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
+                listedTokenIds={listedTokenIds}
               />
             )}
             {tab === 'trade' && (
@@ -264,6 +289,7 @@ export function MarketApp() {
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
+                listedTokenIds={listedTokenIds}
               />
             )}
           </div>

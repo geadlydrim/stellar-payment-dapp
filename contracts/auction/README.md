@@ -2,8 +2,8 @@
 
 Multi-auction XLM escrow for Stellar4 Marketplace **Auction** tab (`AuctionPort`).
 
-- **Legacy:** `create_auction` — description-only listing; XLM escrow only (unchanged behavior).
 - **NFT:** `create_nft_auction` — escrows an `item-nft` token; on `close`, NFT transfers to the winner (or back to seller if no bids).
+- **Description-only:** `create_auction` remains on the WASM for older rows; Marketplace UI does not call it.
 
 Amounts are **stroops** (`i128`). `1 XLM = 10_000_000` stroops.
 
@@ -11,13 +11,11 @@ Amounts are **stroops** (`i128`). `1 XLM = 10_000_000` stroops.
 
 | Change | Impact |
 |--------|--------|
-| `AuctionData` adds `nft_contract: Option<Address>`, `token_id: Option<u32>` | **Storage layout change** — redeploy; do not reuse an old contract ID for NFT auctions |
-| `create_auction(...)` | Still works on the new WASM (sets NFT fields to `None`) |
-| `create_nft_auction(...)` | New; requires deployed `item-nft` |
-| `close` event data | NFT closes may include `token_id` in data; legacy closes unchanged |
-| Frontend `.env` | Point `NEXT_PUBLIC_AUCTION_CONTRACT_ID` at the **new** deploy after NFT settle ships |
+| `AuctionData` adds `nft_contract: Option<Address>`, `token_id: Option<u32>` | **Storage layout change** — redeploy; do not reuse an old XLM-only contract ID |
+| `create_nft_auction(...)` | Requires deployed `item-nft` |
+| Frontend `.env` | Point `NEXT_PUBLIC_AUCTION_CONTRACT_ID` at the NFT-capable deploy |
 
-Old testnet contracts remain valid for legacy BidDrift UI until cut over. Marketplace `AuctionPort` should use the redeployed ID.
+Marketplace `AuctionPort` uses only the NFT-capable contract ID.
 
 ## Prerequisites
 

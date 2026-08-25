@@ -39,6 +39,14 @@ describe('play shell wiring (identity 03)', () => {
     assert.doesNotMatch(text, /PLAYER_OWNER_ID/);
   });
 
+  it('PlayShell injects nftBridge from getMarketPorts (P10)', () => {
+    const text = src('components/identity/PlayShell.tsx');
+    assert.match(text, /from '@\/lib\/adapters'/);
+    assert.match(text, /getMarketPorts\(getGameRegistry\(\)\)/);
+    assert.match(text, /nftBridge=\{ports\.nftBridge\}/);
+    assert.match(text, /adapter=\{ports\.adapter\}/);
+  });
+
   it('WalletSessionProvider uses lib/wallet only (no stellar-helper)', () => {
     const text = src('components/identity/WalletSessionProvider.tsx');
     assert.match(text, /from '@\/lib\/wallet'/);
@@ -72,6 +80,7 @@ describe('identity path stays out of Game and stellar-helper', () => {
       assert.doesNotMatch(text, /stellar-helper/);
       assert.doesNotMatch(text, /lib\/soroban/);
       assert.doesNotMatch(text, /lib\/auction/);
+      assert.doesNotMatch(text, /from ['"]@\/lib\/adapters['"]/);
     }
   });
 

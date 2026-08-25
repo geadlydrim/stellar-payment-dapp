@@ -27,8 +27,7 @@ type SettledHandler = (e: {
 }) => void;
 
 /**
- * In-memory NFT auction. Legacy `/` BidDrift UI stays on lib/auction + Soroban;
- * this port powers Marketplace Auction tab until StellarAuctionPort wraps the contract.
+ * In-memory NFT auction for the Marketplace Auction tab.
  */
 export class MockAuctionPort implements AuctionPort {
   private readonly registry: ItemRegistry;

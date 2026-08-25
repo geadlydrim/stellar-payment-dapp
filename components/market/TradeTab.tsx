@@ -5,7 +5,7 @@ import type { ItemRegistry } from '@/lib/registry';
 import type { OfferBoardPort, TradeListing, TradeOffer } from '@/lib/ports';
 import { PortError } from '@/lib/adapters';
 import { TokenSelect, ListingMeta } from './TokenSelect';
-import { itemForToken, listableForOwner, shortId } from './market-utils';
+import { itemForToken, listableForOwner, shortId, availableToList, listingSelectEmptyLabel } from './market-utils';
 
 interface TradeTabProps {
   registry: ItemRegistry;
@@ -16,6 +16,7 @@ interface TradeTabProps {
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
+  listedTokenIds: ReadonlySet<string>;
 }
 
 export function TradeTab({
@@ -27,6 +28,7 @@ export function TradeTab({
   onToast,
   refreshKey,
   onMutate,
+  listedTokenIds,
 }: TradeTabProps) {
   const [listings, setListings] = useState<TradeListing[]>([]);
   const [offersByListing, setOffersByListing] = useState<
@@ -38,7 +40,8 @@ export function TradeTab({
   const [offerTokens, setOfferTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
-  const listable = listableForOwner(registry, ownerId);
+  const ownedListable = listableForOwner(registry, ownerId);
+  const listable = availableToList(ownedListable, listedTokenIds);
 
   const reload = useCallback(async () => {
     const active = (await port.listActive?.()) ?? [];
@@ -54,6 +57,21 @@ export function TradeTab({
   useEffect(() => {
     void reload();
   }, [reload, refreshKey]);
+
+  useEffect(() => {
+    if (tokenId && listedTokenIds.has(tokenId)) setTokenId('');
+    setOfferTokens((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [key, tid] of Object.entries(next)) {
+        if (tid && listedTokenIds.has(tid)) {
+          next[key] = '';
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [tokenId, listedTokenIds]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -88,7 +106,15 @@ export function TradeTab({
           Open to offers
         </h3>
         <div className="grid gap-2">
-          <TokenSelect items={listable} value={tokenId} onChange={setTokenId} />
+          <TokenSelect
+            items={listable}
+            value={tokenId}
+            onChange={setTokenId}
+            emptyLabel={listingSelectEmptyLabel({
+              ownedListable: ownedListable.length,
+              available: listable.length,
+            })}
+          />
           <input
             value={wantsHint}
             onChange={(e) => setWantsHint(e.target.value)}
@@ -203,7 +229,11 @@ export function TradeTab({
                         onChange={(v) =>
                           setOfferTokens((m) => ({ ...m, [key]: v }))
                         }
-                        emptyLabel="No spare NFTs to offer"
+                        emptyLabel={listingSelectEmptyLabel({
+                          ownedListable: ownedListable.length,
+                          available: listable.length,
+                          kind: 'offer',
+                        })}
                       />
                     </div>
                   </label>

@@ -12,16 +12,20 @@ const ThemeContext = createContext<{
   toggleMode: () => void;
 } | null>(null);
 
-const PALETTE_KEY = 'biddrift:palette';
-const MODE_KEY = 'biddrift:mode';
+const PALETTE_KEY = 'stellar4:palette';
+const MODE_KEY = 'stellar4:mode';
+const LEGACY_PALETTE_KEY = 'biddrift:palette';
+const LEGACY_MODE_KEY = 'biddrift:mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [palette, setPaletteState] = useState<Palette>('mintfog');
   const [mode, setModeState] = useState<Mode>('day');
 
   useEffect(() => {
-    const storedPalette = localStorage.getItem(PALETTE_KEY);
-    const storedMode = localStorage.getItem(MODE_KEY);
+    const storedPalette =
+      localStorage.getItem(PALETTE_KEY) ?? localStorage.getItem(LEGACY_PALETTE_KEY);
+    const storedMode =
+      localStorage.getItem(MODE_KEY) ?? localStorage.getItem(LEGACY_MODE_KEY);
     if (storedPalette === 'sherbet' || storedPalette === 'mintfog') setPaletteState(storedPalette);
     if (storedMode === 'day' || storedMode === 'night') setModeState(storedMode);
   }, []);

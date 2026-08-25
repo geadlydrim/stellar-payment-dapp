@@ -5,7 +5,8 @@ import {
   type InvokeResult,
 } from '@/lib/soroban';
 import { PortError } from '@/lib/adapters/helpers';
-import { STROOPS_PER_XLM } from '@/lib/auction';
+
+export const STROOPS_PER_XLM = 10_000_000;
 
 export function addressScVal(addr: string): xdr.ScVal {
   return Address.fromString(addr).toScVal();

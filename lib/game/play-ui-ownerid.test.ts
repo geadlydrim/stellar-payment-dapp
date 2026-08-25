@@ -32,4 +32,20 @@ describe('play UI injects ownerId (identity 02)', () => {
     assert.match(text, /data-hook="export-to-nft-confirm"/);
     assert.match(text, /data-hook="import-from-nft"/);
   });
+
+  it('ItemDetailModal does not import adapters; mint name/notes are gone (P10)', () => {
+    const text = src('components/game/ItemDetailModal.tsx');
+    assert.doesNotMatch(text, /getMarketPorts/);
+    assert.doesNotMatch(text, /@\/lib\/adapters/);
+    assert.doesNotMatch(text, /displayName|setNotes|Notes \(optional\)/);
+    assert.match(text, /nftBridge\.exportToNft/);
+    assert.match(text, /nftBridge\.importFromNft/);
+  });
+
+  it('PlayApp passes injected nftBridge into InventoryPanel', () => {
+    const text = src('components/game/PlayApp.tsx');
+    assert.match(text, /nftBridge:\s*NftBridge/);
+    assert.match(text, /nftBridge=\{nftBridge\}/);
+    assert.doesNotMatch(text, /from '@\/lib\/adapters'/);
+  });
 });
