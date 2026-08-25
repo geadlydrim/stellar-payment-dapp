@@ -12,9 +12,9 @@ import {
   equipWeapon,
   useCharm as applyCharm,
   computeDamage,
-  GameActionError,
   type SpinResult,
 } from '@/lib/game';
+import { toUserMessage } from '@/lib/user-error';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GameCanvas, type EquippedWeaponView } from './GameCanvas';
 import { SpinLottery } from './SpinLottery';
@@ -88,7 +88,7 @@ export function PlayApp({
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2800);
+    const t = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -109,13 +109,7 @@ export function PlayApp({
       reload();
       showToast('Weapon equipped');
     } catch (e) {
-      showToast(
-        e instanceof GameActionError
-          ? e.message
-          : e instanceof Error
-            ? e.message
-            : 'Equip failed'
-      );
+      showToast(toUserMessage(e, { fallback: "Couldn't equip that item." }));
     }
   };
 
@@ -126,13 +120,7 @@ export function PlayApp({
       const secs = Math.max(1, Math.round((buff.expiresAt - Date.now()) / 1000));
       showToast(`Power Charm active ×${buff.multiplier} for ${secs}s`);
     } catch (e) {
-      showToast(
-        e instanceof GameActionError
-          ? e.message
-          : e instanceof Error
-            ? e.message
-            : 'Use failed'
-      );
+      showToast(toUserMessage(e, { fallback: "Couldn't use that charm." }));
     }
   };
 
@@ -231,7 +219,7 @@ export function PlayApp({
 
       {toast && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-[qf-toast-in_0.25s_ease]"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-sm font-medium shadow-lg max-w-[min(92vw,24rem)] text-center leading-snug animate-[qf-toast-in_0.25s_ease]"
           style={{
             background: 'var(--qf-toast-bg)',
             border: '1px solid var(--qf-toast-border)',

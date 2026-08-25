@@ -52,10 +52,10 @@ export class MockAuctionPort implements AuctionPort {
     requireListableOwned(this.registry, params.tokenId, params.seller);
     parseXlm(params.startPriceXlm);
     if (params.durationSec <= 0) {
-      throw new PortError('durationSec must be > 0');
+      throw new PortError('Enter a duration greater than 0 seconds.');
     }
     if (this.isActiveHere(params.tokenId) || this.isTokenBusyElsewhere(params.tokenId)) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const auction: AuctionListing = {
@@ -79,10 +79,10 @@ export class MockAuctionPort implements AuctionPort {
   }): Promise<void> {
     const auction = this.requireAuction(params.auctionId);
     if (Date.now() >= auction.endTime) {
-      throw new PortError('Auction has ended');
+      throw new PortError('This auction has already ended.');
     }
     if (auction.seller === params.bidder) {
-      throw new PortError('Seller cannot bid');
+      throw new PortError("You can't bid on your own auction.");
     }
     const amount = parseXlm(params.amountXlm);
     const min = auction.highestBidXlm
@@ -106,11 +106,13 @@ export class MockAuctionPort implements AuctionPort {
   }): Promise<void> {
     const auction = this.requireAuction(params.auctionId);
     if (Date.now() < auction.endTime && params.caller !== auction.seller) {
-      throw new PortError('Auction still running — only seller can force-close in mock');
+      throw new PortError(
+        'This auction is still running. Wait for the timer, then settle.'
+      );
     }
 
-    const item = findItemByTokenId(this.registry, auction.tokenId);
-    if (!item) throw new PortError('Auction item missing from registry');
+    const item = findItemByTokenId(this.registry, auction.tokenId, auction.seller);
+    if (!item) throw new PortError("That auction's item is missing. Refresh and try again.");
 
     // Remove from active list by setting endTime in the past and clearing via filter
     const winner = auction.highestBidder;
@@ -165,7 +167,7 @@ export class MockAuctionPort implements AuctionPort {
     const auction = this.store.auctions.find(
       (a) => String(a.auctionId) === String(auctionId) && !isClosed(a)
     );
-    if (!auction) throw new PortError(`Auction not found: ${auctionId}`);
+    if (!auction) throw new PortError('Auction not found.');
     return auction;
   }
 }

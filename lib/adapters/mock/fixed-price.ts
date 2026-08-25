@@ -42,10 +42,10 @@ export class MockFixedPricePort implements FixedPricePort {
     requireListableOwned(this.registry, params.tokenId, params.seller);
     parseXlm(params.priceXlm);
     if (Number(params.priceXlm) <= 0) {
-      throw new PortError('priceXlm must be > 0');
+      throw new PortError('Enter a price greater than 0.');
     }
     if (this.isActiveHere(params.tokenId) || this.isTokenBusyElsewhere(params.tokenId)) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const listing: FixedPriceListing = {
@@ -65,13 +65,13 @@ export class MockFixedPricePort implements FixedPricePort {
     buyer: string;
   }): Promise<{ listingId: string | number; tokenId: TokenId }> {
     const listing = this.requireListing(params.listingId);
-    if (!listing.active) throw new PortError('Listing is not active');
+    if (!listing.active) throw new PortError('This listing is no longer for sale.');
     if (listing.seller === params.buyer) {
-      throw new PortError('Cannot buy your own listing');
+      throw new PortError("You can't buy your own listing.");
     }
 
-    const item = findItemByTokenId(this.registry, listing.tokenId);
-    if (!item) throw new PortError('Listed item missing from registry');
+    const item = findItemByTokenId(this.registry, listing.tokenId, listing.seller);
+    if (!item) throw new PortError("That listing's item is missing. Refresh and try again.");
 
     listing.active = false;
     transferItemOwner(this.registry, item.id, params.buyer);
@@ -84,9 +84,9 @@ export class MockFixedPricePort implements FixedPricePort {
     seller: string;
   }): Promise<void> {
     const listing = this.requireListing(params.listingId);
-    if (!listing.active) throw new PortError('Listing is not active');
+    if (!listing.active) throw new PortError('This listing is no longer for sale.');
     if (listing.seller !== params.seller) {
-      throw new PortError('Only the seller can cancel');
+      throw new PortError('Only the seller can cancel.');
     }
     listing.active = false;
     this.persist();
@@ -108,7 +108,7 @@ export class MockFixedPricePort implements FixedPricePort {
     const listing = this.store.listings.find(
       (l) => String(l.listingId) === String(listingId)
     );
-    if (!listing) throw new PortError(`Sale listing not found: ${listingId}`);
+    if (!listing) throw new PortError('Sale listing not found.');
     return listing;
   }
 }

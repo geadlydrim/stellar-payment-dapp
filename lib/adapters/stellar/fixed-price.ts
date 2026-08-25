@@ -52,13 +52,13 @@ export class StellarFixedPricePort implements FixedPricePort {
     );
     parseXlm(params.priceXlm);
     if (Number(params.priceXlm) <= 0) {
-      throw new PortError('priceXlm must be > 0');
+      throw new PortError('Enter a price greater than 0.');
     }
     if (
       (await this.isActiveHere(params.tokenId)) ||
       (await this.isTokenBusyElsewhere(params.tokenId))
     ) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const result = await invokeOrThrow(
@@ -77,7 +77,7 @@ export class StellarFixedPricePort implements FixedPricePort {
         ? Number(result.returnValue as number | bigint)
         : undefined;
     if (listingId === undefined || !Number.isInteger(listingId)) {
-      throw new PortError('list succeeded but returned no listing id');
+      throw new PortError("Couldn't create the listing. Try again.");
     }
 
     return {
@@ -97,14 +97,14 @@ export class StellarFixedPricePort implements FixedPricePort {
     const id = listingIdToU32(params.listingId);
 
     const before = await this.getListingRaw(id);
-    if (!before.active) throw new PortError('Listing is not active');
+    if (!before.active) throw new PortError('This listing is no longer for sale.');
     if (String(before.seller) === params.buyer) {
-      throw new PortError('Cannot buy your own listing');
+      throw new PortError("You can't buy your own listing.");
     }
 
     const tokenId = u32ToTokenId(before.token_id as number | bigint);
-    const item = findItemByTokenId(this.registry, tokenId);
-    if (!item) throw new PortError('Listed item missing from registry');
+    const item = findItemByTokenId(this.registry, tokenId, String(before.seller));
+    if (!item) throw new PortError("That listing's item is missing. Refresh and try again.");
 
     await invokeOrThrow(
       this.contracts.fixedPrice,
@@ -153,7 +153,7 @@ export class StellarFixedPricePort implements FixedPricePort {
       u32ScVal(id),
     ]);
     if (!raw || typeof raw !== 'object') {
-      throw new PortError(`Sale listing not found: ${id}`);
+      throw new PortError('Sale listing not found.');
     }
     return raw as Record<string, unknown>;
   }

@@ -9,6 +9,11 @@ import {
   assertNotGuestExportOwner,
   assertStellarExportOwner,
 } from '@/lib/adapters/stellar/export-owner';
+import {
+  auctionCloseFailureToPortError,
+  mintFailureToPortError,
+  parseContractErrorCode,
+} from '@/lib/adapters/stellar/contract-error';
 import { StellarNftBridge } from '@/lib/adapters/stellar/nft-bridge';
 import type { StellarContractIds } from '@/lib/adapters/stellar/env';
 
@@ -39,7 +44,7 @@ describe('stellar export owner checks (identity 05)', () => {
       () => assertNotGuestExportOwner(GUEST_OWNER_ID),
       (err: unknown) => {
         assert.ok(err instanceof PortError);
-        assert.match(err.message, /guest/i);
+        assert.match(err.message, /connect a wallet/i);
         return true;
       }
     );
@@ -50,8 +55,8 @@ describe('stellar export owner checks (identity 05)', () => {
     const a = fakeG('A');
     const b = fakeG('B');
     assert.doesNotThrow(() => assertStellarExportOwner(a, a));
-    assert.throws(() => assertStellarExportOwner(a, b), /match the connected wallet/);
-    assert.throws(() => assertStellarExportOwner('player-1', a), /Stellar public key/);
+    assert.throws(() => assertStellarExportOwner(a, b), /connected wallet/);
+    assert.throws(() => assertStellarExportOwner('player-1', a), /Stellar wallet/);
   });
 });
 
@@ -99,7 +104,7 @@ describe('StellarNftBridge.exportToNft remaps Registry owner', () => {
 
     await assert.rejects(
       () => bridge.exportToNft(item.id, GUEST_OWNER_ID),
-      /guest/i
+      /connect a wallet/i
     );
     assert.equal(minted, false);
     const row = registry.get(item.id)!;
@@ -126,7 +131,7 @@ describe('StellarNftBridge.exportToNft remaps Registry owner', () => {
 
     await assert.rejects(
       () => bridge.exportToNft(item.id, a),
-      /match the connected wallet/
+      /connected wallet/
     );
     assert.equal(minted, false);
     assert.equal(registry.get(item.id)!.state, 'InGame');
@@ -148,15 +153,154 @@ describe('StellarNftBridge.exportToNft remaps Registry owner', () => {
 
     await assert.rejects(
       () => bridge.exportToNft(item.id, GUEST_OWNER_ID),
-      /guest/i
+      /connect a wallet/i
     );
     await assert.rejects(
       () => bridge.exportToNft(item.id, signer),
-      /Not your item/
+      /not your item/i
     );
     const row = registry.get(item.id)!;
     assert.equal(row.ownerId, GUEST_OWNER_ID);
     assert.equal(row.tokenId, '99');
+  });
+});
+
+describe('parseContractErrorCode', () => {
+  it('reads Error(Contract, #N) and HostError wrappers', () => {
+    assert.equal(parseContractErrorCode('Error(Contract, #4)'), 4);
+    assert.equal(
+      parseContractErrorCode('HostError: Error(Contract, #8)'),
+      8
+    );
+    assert.equal(
+      parseContractErrorCode(
+        'simulation failed: HostError: Error(Contract, #8)'
+      ),
+      8
+    );
+    assert.equal(parseContractErrorCode('Transaction failed on-chain'), undefined);
+  });
+});
+
+describe('mintFailureToPortError', () => {
+  it('maps #4 and #8 when the SDK string includes them', () => {
+    const notMinter = mintFailureToPortError(
+      new Error('HostError: Error(Contract, #4)')
+    );
+    assert.ok(notMinter instanceof PortError);
+    assert.match(notMinter.message, /can't mint that way/i);
+
+    const already = mintFailureToPortError(
+      new Error('Error(Contract, #8)')
+    );
+    assert.match(already.message, /already an NFT/i);
+  });
+
+  it('keeps a short generic message and never leaks HostError', () => {
+    const other = mintFailureToPortError(
+      new Error('HostError: Error(Contract, #7)')
+    );
+    assert.doesNotMatch(other.message, /HostError|#7|Event log/i);
+    assert.match(other.message, /Couldn't export/i);
+    const plain = mintFailureToPortError(new Error('RPC timeout'));
+    assert.match(plain.message, /timed out/i);
+  });
+});
+
+describe('auctionCloseFailureToPortError', () => {
+  it('maps #7 NotEnded', () => {
+    const err = auctionCloseFailureToPortError(
+      new Error(
+        'HostError: Error(Contract, #7) ... fn_call ... close], data:2'
+      )
+    );
+    assert.ok(err instanceof PortError);
+    assert.match(err.message, /still running/i);
+  });
+});
+
+describe('StellarNftBridge.exportToNft unlocks on mint failure (I1)', () => {
+  it('export from InGame then mint throw leaves item InGame', async () => {
+    const signer = fakeG('A');
+    const registry = new MemoryItemRegistry();
+    const item = registry.create(signer, weaponMeta);
+    let mintCalls = 0;
+    const bridge = new StellarNftBridge({
+      registry,
+      contracts: CONTRACTS,
+      resolveSigner: async () => signer,
+      mintToken: async () => {
+        mintCalls += 1;
+        throw new Error('RPC timeout');
+      },
+    });
+
+    await assert.rejects(
+      () => bridge.exportToNft(item.id, signer),
+      (err: unknown) => {
+        assert.ok(err instanceof PortError);
+        assert.match(err.message, /timed out/i);
+        return true;
+      }
+    );
+    assert.equal(mintCalls, 1);
+    const row = registry.get(item.id)!;
+    assert.equal(row.state, 'InGame');
+    assert.equal(row.tokenId, undefined);
+    assert.equal(row.ownerId, signer);
+  });
+
+  it('lock-then-mint-fail path ends InGame', async () => {
+    const signer = fakeG('B');
+    const registry = new MemoryItemRegistry();
+    const item = registry.create(signer, weaponMeta);
+    registry.lockForTrade(item.id, signer);
+    assert.equal(registry.get(item.id)!.state, 'LockedForTrade');
+
+    const bridge = new StellarNftBridge({
+      registry,
+      contracts: CONTRACTS,
+      resolveSigner: async () => signer,
+      mintToken: async () => {
+        throw new Error('HostError: Error(Contract, #8)');
+      },
+    });
+
+    await assert.rejects(
+      () => bridge.exportToNft(item.id, signer),
+      (err: unknown) => {
+        assert.ok(err instanceof PortError);
+        assert.match(err.message, /already an NFT/i);
+        return true;
+      }
+    );
+    const row = registry.get(item.id)!;
+    assert.equal(row.state, 'InGame');
+    assert.equal(row.ownerId, signer);
+  });
+
+  it('surfaces #4 NotMinter as a readable PortError and unlocks', async () => {
+    const signer = fakeG('C');
+    const registry = new MemoryItemRegistry();
+    const item = registry.create(signer, weaponMeta);
+    const bridge = new StellarNftBridge({
+      registry,
+      contracts: CONTRACTS,
+      resolveSigner: async () => signer,
+      mintToken: async () => {
+        throw new Error('HostError: Error(Contract, #4)');
+      },
+    });
+
+    await assert.rejects(
+      () => bridge.exportToNft(item.id, signer),
+      (err: unknown) => {
+        assert.ok(err instanceof PortError);
+        assert.match(err.message, /can't mint that way/i);
+        return true;
+      }
+    );
+    assert.equal(registry.get(item.id)!.state, 'InGame');
   });
 });
 
@@ -189,6 +333,9 @@ describe('identity 05 source guards', () => {
     assert.doesNotMatch(text, /PLAYER_OWNER_ID/);
     assert.match(text, /item\.ownerId !== ownerId/);
     assert.match(text, /onChainOwner !== signer/);
+    assert.match(text, /mintFailureToPortError/);
+    assert.match(text, /this\.registry\.unlock\(itemId, ownerId\)/);
+    assert.doesNotMatch(text, /is_minter/);
   });
 
   it('mock bridge does not remap owner on export', () => {
@@ -212,6 +359,7 @@ describe('identity 05 source guards', () => {
     const text = src('lib/adapters/stellar/listable.ts');
     assert.match(text, /onChainOwner/);
     assert.match(text, /item\.ownerId !== seller/);
+    assert.match(text, /findItemByTokenId\(\s*registry,\s*tokenId,\s*seller/);
   });
 
   it('does not batch-remap guest rows onto getPublicKey', () => {

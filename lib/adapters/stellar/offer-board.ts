@@ -56,7 +56,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
       (await this.isActiveHere(params.tokenId)) ||
       (await this.isTokenBusyElsewhere(params.tokenId))
     ) {
-      throw new PortError('Token is already listed on the marketplace');
+      throw new PortError('This NFT is already listed.');
     }
 
     const hint = params.wantsHint ?? '';
@@ -76,7 +76,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
         ? Number(result.returnValue as number | bigint)
         : undefined;
     if (listingId === undefined || !Number.isInteger(listingId)) {
-      throw new PortError('list_for_offers returned no listing id');
+      throw new PortError("Couldn't open this trade listing. Try again.");
     }
 
     return {
@@ -98,14 +98,14 @@ export class StellarOfferBoardPort implements OfferBoardPort {
     parseXlm(params.xlm);
     const offerTokenIds = params.offerTokenIds ?? [];
     if (Number(params.xlm) <= 0 && offerTokenIds.length === 0) {
-      throw new PortError('Offer must include XLM and/or at least one tokenId');
+      throw new PortError('Add some XLM, an NFT, or both.');
     }
 
     const listingId = listingIdToU32(params.listingId);
     const listing = await this.getListingRaw(listingId);
-    if (!listing.active) throw new PortError('Trade listing is not active');
+    if (!listing.active) throw new PortError('This trade listing is no longer open.');
     if (String(listing.seller) === params.buyer) {
-      throw new PortError('Cannot offer on your own listing');
+      throw new PortError("You can't offer on your own listing.");
     }
 
     for (const tid of offerTokenIds) {
@@ -116,7 +116,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
         params.buyer
       );
       if (tid === u32ToTokenId(listing.token_id as number | bigint)) {
-        throw new PortError('Cannot offer the listed token itself');
+        throw new PortError("You can't offer the same NFT that's listed.");
       }
     }
 
@@ -137,7 +137,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
         ? Number(result.returnValue as number | bigint)
         : undefined;
     if (offerId === undefined || !Number.isInteger(offerId)) {
-      throw new PortError('submit_offer returned no offer id');
+      throw new PortError("Couldn't submit that offer. Try again.");
     }
 
     return {
@@ -158,14 +158,18 @@ export class StellarOfferBoardPort implements OfferBoardPort {
     const offerId = listingIdToU32(params.offerId);
     const offer = await this.getOfferRaw(offerId);
     const listing = await this.getListingRaw(Number(offer.listing_id));
-    if (!listing.active) throw new PortError('Trade listing is not active');
+    if (!listing.active) throw new PortError('This trade listing is no longer open.');
     if (String(listing.seller) !== params.seller) {
-      throw new PortError('Only the seller can accept');
+      throw new PortError('Only the seller can accept.');
     }
 
     const listedTokenId = u32ToTokenId(listing.token_id as number | bigint);
-    const listedItem = findItemByTokenId(this.registry, listedTokenId);
-    if (!listedItem) throw new PortError('Listed item missing');
+    const listedItem = findItemByTokenId(
+      this.registry,
+      listedTokenId,
+      String(listing.seller)
+    );
+    if (!listedItem) throw new PortError("That listing's item is missing. Refresh and try again.");
 
     const buyer = String(offer.buyer);
     const offeredIds = parseTokenIdVec(offer.offer_token_ids);
@@ -180,7 +184,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
     // CONTRACTS v2 owner sync after settle
     transferItemOwner(this.registry, listedItem.id, buyer);
     for (const tid of offeredIds) {
-      const offered = findItemByTokenId(this.registry, tid);
+      const offered = findItemByTokenId(this.registry, tid, buyer);
       if (offered) transferItemOwner(this.registry, offered.id, params.seller);
     }
   }
@@ -239,7 +243,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
       u32ScVal(id),
     ]);
     if (!raw || typeof raw !== 'object') {
-      throw new PortError(`Trade listing not found: ${id}`);
+      throw new PortError('Trade listing not found.');
     }
     return raw as Record<string, unknown>;
   }
@@ -249,7 +253,7 @@ export class StellarOfferBoardPort implements OfferBoardPort {
       u32ScVal(id),
     ]);
     if (!raw || typeof raw !== 'object') {
-      throw new PortError(`Offer not found: ${id}`);
+      throw new PortError('Offer not found.');
     }
     return raw as Record<string, unknown>;
   }

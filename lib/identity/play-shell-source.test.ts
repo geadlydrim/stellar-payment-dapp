@@ -32,7 +32,8 @@ describe('play shell wiring (identity 03)', () => {
 
   it('PlayShell passes session.ownerId into PlayApp', () => {
     const text = src('components/identity/PlayShell.tsx');
-    assert.match(text, /<PlayApp\s+ownerId=\{session\.ownerId\}/);
+    assert.match(text, /<PlayConnected[\s\S]*ownerId=\{session\.ownerId\}/);
+    assert.match(text, /<PlayApp\s+ownerId=\{ownerId\}/);
     assert.match(text, /data-hook="play-connect-wallet"/);
     assert.doesNotMatch(text, /clearPersisted/);
     assert.doesNotMatch(text, /stellar-helper/);

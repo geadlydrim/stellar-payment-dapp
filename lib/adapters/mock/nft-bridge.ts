@@ -37,9 +37,9 @@ export class MockNftBridge implements NftBridge {
     ownerId: string
   ): Promise<{ tokenId: TokenId }> {
     const item = this.registry.get(itemId);
-    if (!item) throw new PortError(`Item not found: ${itemId}`);
+    if (!item) throw new PortError('Item not found.');
     if (item.ownerId !== ownerId) {
-      throw new PortError('Not your item');
+      throw new PortError("That's not your item.");
     }
 
     if (item.state === 'AsNft' && item.tokenId) {
@@ -49,7 +49,7 @@ export class MockNftBridge implements NftBridge {
     if (item.state === 'InGame') {
       this.registry.lockForTrade(itemId, ownerId);
     } else if (item.state !== 'LockedForTrade') {
-      throw new PortError(`Cannot export item in state ${item.state}`);
+      throw new PortError("This item isn't ready to export.");
     }
 
     const tokenId = this.idFactory(itemId);
@@ -61,20 +61,20 @@ export class MockNftBridge implements NftBridge {
     tokenId: TokenId,
     ownerId: string
   ): Promise<{ itemId: ItemId }> {
-    if (!tokenId) throw new PortError('tokenId is required');
+    if (!tokenId) throw new PortError('Pick an NFT first.');
     if (this.isTokenListed(tokenId)) {
       throw new PortError(
-        'NFT is listed on the marketplace — cancel the listing before importing'
+        'Cancel the marketplace listing before bringing this NFT back to Play.'
       );
     }
 
-    const item = findItemByTokenId(this.registry, tokenId);
-    if (!item) throw new PortError(`No item found for tokenId ${tokenId}`);
+    const item = findItemByTokenId(this.registry, tokenId, ownerId);
+    if (!item) throw new PortError("Couldn't find that NFT in your inventory.");
     if (item.ownerId !== ownerId) {
-      throw new PortError('Not your NFT');
+      throw new PortError("That's not your NFT.");
     }
     if (item.state !== 'AsNft') {
-      throw new PortError(`Cannot import: item is ${item.state}`);
+      throw new PortError("This item isn't an NFT you can bring back to Play right now.");
     }
 
     this.registry.markInGame(item.id);

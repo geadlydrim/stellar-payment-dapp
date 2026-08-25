@@ -22,6 +22,7 @@ pub enum NftError {
     NotOwner = 5,
     TokenNotFound = 6,
     InvalidToken = 7,
+    ItemAlreadyMinted = 8,
 }
 
 #[contracttype]
@@ -32,6 +33,8 @@ pub enum DataKey {
     Minter(Address),
     Owner(u32),
     ItemId(u32),
+    /// Live token for a Registry `item_id`. Cleared on burn so re-export can mint again.
+    TokenByItem(String),
 }
 
 const EVENT_TOPIC: Symbol = symbol_short!("item_nft");
@@ -41,7 +44,7 @@ pub struct ItemNftContract;
 
 #[contractimpl]
 impl ItemNftContract {
-    /// One-time setup. `admin` may authorize minters (e.g. NftBridge adapter key).
+    /// One-time setup. Admin is always a minter. `set_minter` is optional for mint-to-other.
     pub fn initialize(env: Env, admin: Address) -> Result<(), NftError> {
         if env.storage().instance().has(&DataKey::Admin) {
             return Err(NftError::AlreadyInitialized);
@@ -52,7 +55,7 @@ impl ItemNftContract {
         Ok(())
     }
 
-    /// Admin grants or revokes mint authority.
+    /// Admin grants or revokes mint-to-other authority. Not required for player self-mint.
     pub fn set_minter(
         env: Env,
         admin: Address,
@@ -70,6 +73,8 @@ impl ItemNftContract {
 
     /// Mint a new NFT to `to`. Returns on-chain `token_id` (stringified for TokenId in ports).
     /// `item_id` is the Registry item id string for NftBridge import mapping.
+    /// Self-mint (`minter == to`) is allowed for any signer; mint-to-other requires
+    /// admin or `set_minter`. A given `item_id` may have only one live token.
     pub fn mint(
         env: Env,
         minter: Address,
@@ -78,8 +83,16 @@ impl ItemNftContract {
     ) -> Result<u32, NftError> {
         minter.require_auth();
         Self::require_initialized(&env)?;
-        if !Self::is_minter_inner(&env, &minter) {
+        if item_id.is_empty() {
+            return Err(NftError::InvalidToken);
+        }
+        if minter != to && !Self::is_minter_inner(&env, &minter) {
             return Err(NftError::NotMinter);
+        }
+
+        let by_item = DataKey::TokenByItem(item_id.clone());
+        if env.storage().persistent().has(&by_item) {
+            return Err(NftError::ItemAlreadyMinted);
         }
 
         let token_id: u32 = env.storage().instance().get(&DataKey::NextId).unwrap_or(0);
@@ -89,12 +102,16 @@ impl ItemNftContract {
         env.storage()
             .persistent()
             .set(&DataKey::ItemId(token_id), &item_id);
+        env.storage().persistent().set(&by_item, &token_id);
         env.storage()
             .persistent()
             .extend_ttl(&DataKey::Owner(token_id), 100_000, 100_000);
         env.storage()
             .persistent()
             .extend_ttl(&DataKey::ItemId(token_id), 100_000, 100_000);
+        env.storage()
+            .persistent()
+            .extend_ttl(&by_item, 100_000, 100_000);
 
         env.storage().instance().set(&DataKey::NextId, &(token_id + 1));
         env.storage().instance().extend_ttl(100_000, 100_000);
@@ -121,6 +138,9 @@ impl ItemNftContract {
 
         env.storage().persistent().remove(&DataKey::Owner(token_id));
         env.storage().persistent().remove(&DataKey::ItemId(token_id));
+        env.storage()
+            .persistent()
+            .remove(&DataKey::TokenByItem(item_id.clone()));
 
         env.events().publish(
             (EVENT_TOPIC, symbol_short!("burn"), token_id),

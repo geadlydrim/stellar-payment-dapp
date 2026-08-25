@@ -10,10 +10,10 @@ import {
   parseCharmAttrs,
   isWeaponItem,
   isCharmItem,
-  GameActionError,
   unequip,
   getEquippedItemId,
 } from '@/lib/game';
+import { toUserMessage } from '@/lib/user-error';
 import { StateBadge, TierDot } from './StateBadge';
 import { CharmPixelIcon, WeaponPixelIcon } from './PixelIcon';
 
@@ -66,11 +66,7 @@ export function ItemDetailModal({
       onChanged();
       onClose();
     } catch (e) {
-      setError(
-        e instanceof GameActionError || e instanceof Error
-          ? e.message
-          : 'Export failed'
-      );
+      setError(toUserMessage(e, { fallback: "Couldn't export this item. Try again." }));
     } finally {
       setConfirming(false);
     }
@@ -83,7 +79,7 @@ export function ItemDetailModal({
       onChanged();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unlock failed');
+      setError(toUserMessage(e, { fallback: "Couldn't cancel export." }));
     }
   };
 
@@ -96,7 +92,7 @@ export function ItemDetailModal({
       onChanged();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed');
+      setError(toUserMessage(e, { fallback: "Couldn't bring this NFT back to Play." }));
     } finally {
       setImporting(false);
     }
@@ -262,7 +258,7 @@ export function ItemDetailModal({
                 title={
                   usable
                     ? 'Equip for combat'
-                    : `Cannot equip while ${item.state}`
+                    : 'Bring this NFT back to Play first'
                 }
                 className="py-2 rounded-lg text-sm font-semibold border-none cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                 style={{
@@ -283,7 +279,7 @@ export function ItemDetailModal({
                 disabled={!usable}
                 onClick={() => onUseCharm(item.id)}
                 title={
-                  usable ? 'Consume for damage buff' : `Cannot use while ${item.state}`
+                  usable ? 'Consume for damage buff' : 'Bring this NFT back to Play first'
                 }
                 className="py-2 rounded-lg text-sm font-semibold border-none cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                 style={{
@@ -311,7 +307,7 @@ export function ItemDetailModal({
                 onClick={handleCancelExport}
                 className="py-2 rounded-lg text-sm font-semibold cursor-pointer border border-[var(--qf-card-border)] bg-[var(--qf-card-bg-soft)] text-[var(--qf-text-1)]"
               >
-                Cancel export (unlock)
+                Cancel export
               </button>
             )}
 
@@ -320,20 +316,19 @@ export function ItemDetailModal({
                 type="button"
                 disabled={importing}
                 onClick={() => void handleImport()}
-                title="Redeem NFT back to InGame (cancel marketplace listing first if listed)"
+                title="Bring this NFT back to Play (cancel any marketplace listing first)"
                 className="py-2 rounded-lg text-sm font-semibold cursor-pointer border border-[var(--qf-card-border)] bg-[var(--qf-card-bg-soft)] text-[var(--qf-text-1)] disabled:opacity-45"
                 data-hook="import-from-nft"
               >
-                {importing ? 'Importing…' : 'Import from NFT'}
+                {importing ? 'Returning…' : 'Return to Play'}
               </button>
             )}
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--qf-text-2)]">
-              Export locks the item, mints an NFT token id, and marks it{' '}
-              <code className="text-xs">AsNft</code>. It cannot be used in-game
-              until imported. List it on{' '}
+              Export locks the item and mints an NFT. It cannot be used in Play
+              until you return it. List it on the{' '}
               <a href="/market" className="underline text-[var(--qf-text-1)]">
                 Marketplace
               </a>
@@ -348,8 +343,8 @@ export function ItemDetailModal({
                 <span className="text-[var(--qf-text-4)]">Network</span>
                 <span className="text-[var(--qf-text-2)]">
                   {adapter === 'stellar'
-                    ? 'Stellar (item-nft)'
-                    : 'Mock NftBridge'}
+                    ? 'Stellar testnet'
+                    : 'This device'}
                 </span>
               </div>
               <div className="flex justify-between">

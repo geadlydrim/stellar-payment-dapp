@@ -1,17 +1,16 @@
 'use client';
 
-import { MemoryItemRegistry, isListable, type Item } from '@/lib/registry';
+import { isListable, type Item } from '@/lib/registry';
 import type { ItemRegistry } from '@/lib/registry';
+import { findItemByTokenId } from '@/lib/adapters/helpers';
 
 /** Resolve display metadata for a tokenId from the shared registry. */
 export function itemForToken(
   registry: ItemRegistry,
-  tokenId: string
+  tokenId: string,
+  preferOwnerId?: string
 ): Item | undefined {
-  if (registry instanceof MemoryItemRegistry) {
-    return registry.listAll().find((i) => i.tokenId === tokenId);
-  }
-  return undefined;
+  return findItemByTokenId(registry, tokenId, preferOwnerId);
 }
 
 export function listableForOwner(
@@ -55,17 +54,17 @@ export function listingSelectEmptyLabel(opts: {
   if (opts.kind === 'offer') {
     if (opts.ownedListable === 0) return 'No spare NFTs to offer';
     if (opts.available === 0) {
-      return 'No spare unlisted NFTs to offer — cancel a listing first';
+      return 'All spare NFTs are listed — cancel one first';
     }
     return 'No spare NFTs to offer';
   }
   if (opts.ownedListable === 0) {
-    return 'No listable NFTs — export one from /play first';
+    return 'Export one from Play first';
   }
   if (opts.available === 0) {
-    return 'Already listed on another market tab — cancel that listing first';
+    return 'All of your NFTs are already listed — cancel one first';
   }
-  return 'No listable NFTs — export one from /play first';
+  return 'Export one from Play first';
 }
 
 type TokenIdList = { tokenId: string }[];

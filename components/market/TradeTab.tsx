@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemRegistry } from '@/lib/registry';
 import type { OfferBoardPort, TradeListing, TradeOffer } from '@/lib/ports';
-import { PortError } from '@/lib/adapters';
+import { toUserMessage } from '@/lib/user-error';
 import { TokenSelect, ListingMeta } from './TokenSelect';
 import { itemForToken, listableForOwner, shortId, availableToList, listingSelectEmptyLabel } from './market-utils';
 
@@ -12,7 +12,6 @@ interface TradeTabProps {
   port: OfferBoardPort;
   ownerId: string;
   actorId: string;
-  demoBuyerId: string;
   onToast: (msg: string) => void;
   refreshKey: number;
   onMutate: () => void;
@@ -24,7 +23,6 @@ export function TradeTab({
   port,
   ownerId,
   actorId,
-  demoBuyerId,
   onToast,
   refreshKey,
   onMutate,
@@ -81,7 +79,7 @@ export function TradeTab({
       onMutate();
       await reload();
     } catch (e) {
-      onToast(e instanceof PortError || e instanceof Error ? e.message : 'Failed');
+      onToast(toUserMessage(e));
     } finally {
       setBusy(false);
     }
@@ -90,9 +88,7 @@ export function TradeTab({
   return (
     <div className="space-y-5">
       <p className="text-xs text-[var(--qf-text-3)]">
-        Offer board — buyers propose XLM and/or NFT tokenIds; seller{' '}
-        <strong className="font-medium text-[var(--qf-text-2)]">accepts or rejects</strong>.
-        Not an automatic swap.
+        Buyers can offer XLM and/or another NFT. You accept or reject — nothing swaps automatically.
       </p>
 
       <section
@@ -158,7 +154,7 @@ export function TradeTab({
           <p className="text-xs text-[var(--qf-text-4)]">No open trade listings.</p>
         )}
         {listings.map((listing) => {
-          const item = itemForToken(registry, listing.tokenId);
+          const item = itemForToken(registry, listing.tokenId, listing.seller);
           const mine = listing.seller === actorId;
           const key = String(listing.listingId);
           const offers = offersByListing[key] ?? [];
@@ -264,28 +260,6 @@ export function TradeTab({
                 </div>
               )}
 
-              {mine && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    run(
-                      () =>
-                        port.submitOffer({
-                          listingId: listing.listingId,
-                          buyer: demoBuyerId,
-                          xlm: '15',
-                          offerTokenIds: [],
-                        }),
-                      'Demo offer submitted (15 XLM)'
-                    )
-                  }
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer border border-dashed border-[var(--qf-card-border)] bg-transparent text-[var(--qf-text-3)]"
-                >
-                  Simulate buyer offer
-                </button>
-              )}
-
               {pending.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-[var(--qf-card-border-soft)]">
                   <p className="text-[11px] font-medium text-[var(--qf-text-3)]">
@@ -298,7 +272,7 @@ export function TradeTab({
                       style={{ background: 'var(--qf-input-bg)' }}
                     >
                       <span className="text-[var(--qf-text-2)]">
-                        {offer.buyer === demoBuyerId ? 'demo buyer' : shortId(offer.buyer)}:{' '}
+                        {shortId(offer.buyer)}:{' '}
                         {offer.xlm} XLM
                         {offer.offerTokenIds.length > 0 &&
                           ` + ${offer.offerTokenIds.map((t) => shortId(t)).join(', ')}`}
@@ -315,7 +289,7 @@ export function TradeTab({
                                     offerId: offer.offerId,
                                     seller: actorId,
                                   }),
-                                'Offer accepted — assets transferred'
+                                'Offer accepted — items transferred'
                               )
                             }
                             className="rounded-md px-2 py-1 font-semibold border-none cursor-pointer"

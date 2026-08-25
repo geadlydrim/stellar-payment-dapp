@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Item } from '@/lib/registry';
 import { getGameRegistry } from '@/lib/game';
-import { getMarketPorts, type MarketPorts } from '@/lib/adapters';
+import { getMarketPorts, reconcileSessionAsNft, type MarketPorts } from '@/lib/adapters';
 import { useWalletSession } from '@/components/identity/WalletSessionProvider';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SaleTab } from './SaleTab';
 import { AuctionTab } from './AuctionTab';
 import { TradeTab } from './TradeTab';
+import { toUserMessage } from '@/lib/user-error';
 import { availableToList, listableForOwner, loadListedTokenIds, shortId } from './market-utils';
-
-export const DEMO_BUYER_ID = 'stellar4-demo-buyer';
 
 type TabId = 'sale' | 'auction' | 'trade';
 
@@ -48,13 +47,29 @@ export function MarketApp() {
 
   const registry = useMemo(() => getGameRegistry(), []);
 
-  const reloadNfts = useCallback(() => {
+  const reloadNfts = useCallback(async () => {
     if (!inventoryOwnerId) {
       setNfts([]);
       return;
     }
+    if (ports) {
+      try {
+        const { reverted } = await reconcileSessionAsNft(
+          registry,
+          ports,
+          inventoryOwnerId
+        );
+        if (reverted > 0) {
+          setToast(
+            `Cleared ${reverted} outdated NFT${reverted === 1 ? '' : 's'}. They're back in Play — export again to list.`
+          );
+        }
+      } catch {
+        /* still show current registry rows */
+      }
+    }
     setNfts(listableForOwner(registry, inventoryOwnerId));
-  }, [registry, inventoryOwnerId]);
+  }, [registry, inventoryOwnerId, ports]);
 
   const reloadListed = useCallback(async () => {
     if (!ports) {
@@ -78,7 +93,9 @@ export function MarketApp() {
       setToast('Wallet connected');
     } catch (e) {
       setToast(
-        e instanceof Error ? e.message : 'Wallet connection failed — try Freighter on testnet'
+        toUserMessage(e, {
+          fallback: "Couldn't connect. Open Freighter and try again.",
+        })
       );
     }
   };
@@ -91,18 +108,18 @@ export function MarketApp() {
 
   useEffect(() => {
     if (!hydrated) return;
-    reloadNfts();
+    void reloadNfts();
     void reloadListed();
   }, [hydrated, reloadNfts, reloadListed, refreshKey]);
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2800);
+    const t = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(t);
   }, [toast]);
 
   const onMutate = () => {
-    reloadNfts();
+    void reloadNfts();
     void reloadListed();
     setRefreshKey((k) => k + 1);
   };
@@ -199,7 +216,7 @@ export function MarketApp() {
                   <>
                     none — export from{' '}
                     <a href="/play" className="underline text-[var(--qf-text-2)]">
-                      /play
+                      Play
                     </a>
                   </>
                 ) : (
@@ -259,7 +276,6 @@ export function MarketApp() {
                 port={ports.fixedPrice}
                 ownerId={inventoryOwnerId}
                 actorId={actorId}
-                demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
@@ -272,7 +288,6 @@ export function MarketApp() {
                 port={ports.auction}
                 ownerId={inventoryOwnerId}
                 actorId={actorId}
-                demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
@@ -285,7 +300,6 @@ export function MarketApp() {
                 port={ports.offerBoard}
                 ownerId={inventoryOwnerId}
                 actorId={actorId}
-                demoBuyerId={DEMO_BUYER_ID}
                 onToast={onToast}
                 refreshKey={refreshKey}
                 onMutate={onMutate}
@@ -298,7 +312,7 @@ export function MarketApp() {
 
       {toast && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-[qf-toast-in_0.25s_ease]"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-sm font-medium shadow-lg max-w-[min(92vw,24rem)] text-center leading-snug animate-[qf-toast-in_0.25s_ease]"
           style={{
             background: 'var(--qf-toast-bg)',
             border: '1px solid var(--qf-toast-border)',

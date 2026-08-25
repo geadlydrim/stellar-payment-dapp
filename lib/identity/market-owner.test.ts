@@ -4,19 +4,15 @@ import { MemoryItemRegistry } from '@/lib/registry';
 import { GUEST_OWNER_ID, resolveOwnerId } from '@/lib/identity/owner';
 import { listableForOwner } from '@/components/market/market-utils';
 
-const DEMO_BUYER_ID = 'stellar4-demo-buyer';
-
 function fakeG(fill = 'A'): string {
   return `G${fill.repeat(55)}`;
 }
 
 describe('market listable owner isolation (identity 04)', () => {
-  it('mock session owner is guest and not the demo buyer', () => {
+  it('mock session owner is guest', () => {
     const session = resolveOwnerId({ adapter: 'mock', publicKey: null });
     assert.equal(session?.ownerId, GUEST_OWNER_ID);
     assert.equal(session?.ownerId, 'stellar4-player');
-    assert.notEqual(DEMO_BUYER_ID, GUEST_OWNER_ID);
-    assert.notEqual(DEMO_BUYER_ID, session?.ownerId);
   });
 
   it('stellar disconnected has no inventory owner (empty listable)', () => {
@@ -24,7 +20,7 @@ describe('market listable owner isolation (identity 04)', () => {
     const registry = new MemoryItemRegistry();
     const guestItem = registry.create(GUEST_OWNER_ID, {
       name: 'Guest Blade',
-      description: 'demo',
+      description: 'stays guest',
       kind: 'weapon',
     });
     registry.lockForTrade(guestItem.id, GUEST_OWNER_ID);

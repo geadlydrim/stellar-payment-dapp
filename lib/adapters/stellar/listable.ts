@@ -14,24 +14,41 @@ export async function requireListableChainOwner(
   seller: string
 ): Promise<Item> {
   assertStellarAddress(seller, 'seller');
-  const item = findItemByTokenId(registry, tokenId);
+  const item = findItemByTokenId(registry, tokenId, seller);
   if (!item) {
-    throw new PortError(`No item found for tokenId ${tokenId}`);
+    throw new PortError("Couldn't find that NFT in your inventory.");
   }
   if (!isListable(item)) {
+    throw new PortError('Export this item from Play before listing it.');
+  }
+
+  const onChainId = tokenIdToU32(tokenId);
+  const exists = await viewOrThrow(nftContractId, 'exists', [
+    u32ScVal(onChainId),
+  ]);
+  if (!exists) {
     throw new PortError(
-      `Item is not listable (state=${item.state}, tokenId=${item.tokenId ?? 'none'})`
+      'This NFT is not on the current network. Refresh the page, then export it again from Play.'
+    );
+  }
+  const chainItemId = String(
+    (await viewOrThrow(nftContractId, 'get_item_id', [u32ScVal(onChainId)])) ??
+      ''
+  );
+  if (chainItemId && chainItemId !== item.id) {
+    throw new PortError(
+      "This inventory item doesn't match the on-chain NFT. Refresh the page."
     );
   }
 
   const onChainOwner = await viewOrThrow(nftContractId, 'owner_of', [
-    u32ScVal(tokenIdToU32(tokenId)),
+    u32ScVal(onChainId),
   ]);
   if (String(onChainOwner) !== seller) {
-    throw new PortError('Connected wallet is not the on-chain NFT owner');
+    throw new PortError("This wallet doesn't own that NFT.");
   }
   if (item.ownerId !== seller) {
-    throw new PortError('Registry owner does not match seller');
+    throw new PortError("This NFT isn't in your inventory.");
   }
   return item;
 }

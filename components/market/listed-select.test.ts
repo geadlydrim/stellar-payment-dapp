@@ -55,11 +55,11 @@ describe('collectListedTokenIds / availableToList', () => {
   it('empty-select copy distinguishes never-exported vs already listed', () => {
     assert.equal(
       listingSelectEmptyLabel({ ownedListable: 0, available: 0 }),
-      'No listable NFTs — export one from /play first'
+      'Export one from Play first'
     );
     assert.equal(
       listingSelectEmptyLabel({ ownedListable: 2, available: 0 }),
-      'Already listed on another market tab — cancel that listing first'
+      'All of your NFTs are already listed — cancel one first'
     );
     assert.equal(
       listingSelectEmptyLabel({
@@ -67,7 +67,7 @@ describe('collectListedTokenIds / availableToList', () => {
         available: 0,
         kind: 'offer',
       }),
-      'No spare unlisted NFTs to offer — cancel a listing first'
+      'All spare NFTs are listed — cancel one first'
     );
   });
 
@@ -122,5 +122,15 @@ describe('market tabs hide listed tokens from TokenSelect (source)', () => {
     }
     assert.match(app, /loadListedTokenIds/);
     assert.match(app, /listedTokenIds=\{listedTokenIds\}/);
+    const select = readFileSync('components/market/TokenSelect.tsx', 'utf8');
+    assert.match(select, /value=\{item\.id\}/);
+    assert.doesNotMatch(select, /value=\{item\.tokenId!\}/);
+    const auctionTab = readFileSync('components/market/AuctionTab.tsx', 'utf8');
+    assert.match(auctionTab, /port\.close && ended/);
+    assert.doesNotMatch(auctionTab, /ended \|\| mine/);
+    assert.doesNotMatch(sale, /Demo buy|demoBuyerId/);
+    assert.doesNotMatch(auction, /Demo bid|demoBuyerId/);
+    assert.doesNotMatch(trade, /Simulate buyer|demoBuyerId/);
+    assert.doesNotMatch(app, /DEMO_BUYER_ID|demoBuyerId/);
   });
 });

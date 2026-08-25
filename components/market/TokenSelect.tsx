@@ -14,7 +14,7 @@ export function TokenSelect({
   items,
   value,
   onChange,
-  emptyLabel = 'No listable NFTs — export one from /play first',
+  emptyLabel = 'Export one from Play first',
 }: TokenSelectProps) {
   if (items.length === 0) {
     return (
@@ -24,13 +24,16 @@ export function TokenSelect({
 
   return (
     <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={items.find((i) => i.tokenId === value)?.id ?? ''}
+      onChange={(e) => {
+        const item = items.find((i) => i.id === e.target.value);
+        onChange(item?.tokenId ?? '');
+      }}
       className="w-full rounded-lg px-3 py-2 text-sm border border-[var(--qf-input-border)] bg-[var(--qf-input-bg)] text-[var(--qf-text-1)] outline-none"
     >
       <option value="">Select NFT…</option>
       {items.map((item) => (
-        <option key={item.id} value={item.tokenId!}>
+        <option key={item.id} value={item.id}>
           {item.meta.name} ({shortId(item.tokenId!)})
         </option>
       ))}
