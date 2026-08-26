@@ -22,21 +22,27 @@ An item is either **usable in-game** or **tradable as an NFT**. Never both at on
 ## Screenshots
 
 Landing
+
 ![Landing](docs/screenshots/landing.png)
 
 Play desktop
+
 ![Play desktop](docs/screenshots/play-desktop.png)
 
 Play mobile
+
 ![Play mobile](docs/screenshots/play-mobile.png)
 
 Marketplace
+
 ![Marketplace](docs/screenshots/market.png)
 
 CI
+
 ![CI](docs/screenshots/ci.png)
 
 Tests
+
 ![Tests](docs/screenshots/tests.png)
 
 
