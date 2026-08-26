@@ -14,7 +14,7 @@ An item is either **usable in-game** or **tradable as an NFT**. Never both at on
 | ------------------------ | -------------------------------------------------------------------------------------------------------- |
 | **Repo**                 | [https://github.com/geadlydrim/stellar-payment-dapp](https://github.com/geadlydrim/stellar-payment-dapp) |
 | **Live demo**            | [https://stellar-4.vercel.app/](https://stellar-4.vercel.app/)                                           |
-| **Demo video (1–2 min)** | *paste YouTube / Drive / Loom URL*                                                                       |
+| **Demo video (1–2 min)** | https://drive.google.com/file/d/17vIRrzb_72EZX4CXFypa-rbd0dSStZOy/view?usp=sharing                       |
 
 
 
