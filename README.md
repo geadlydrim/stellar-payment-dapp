@@ -21,12 +21,12 @@ An item is either **usable in-game** or **tradable as an NFT**. Never both at on
 
 ## Screenshots
 
-Landing
-Play desktop
-Play mobile
-Marketplace
-CI
-Tests
+![Landing](docs/screenshots/landing.png)
+![Play desktop](docs/screenshots/play-desktop.png)
+![Play mobile](docs/screenshots/play-mobile.png)
+![Marketplace](docs/screenshots/market.png)
+![CI](docs/screenshots/ci.png)
+![Tests](docs/screenshots/tests.png)
 
 ## Surfaces
 
