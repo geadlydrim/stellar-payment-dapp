@@ -156,4 +156,31 @@ describe('mock market ports', () => {
       /Couldn't find that NFT/
     );
   });
+
+  it('close still settles when the registry NFT row is gone', async () => {
+    const registry = new MemoryItemRegistry();
+    const ports = createMockMarketPorts(registry);
+    const owner = 'player-1';
+    const item = registry.create(owner, {
+      name: 'Orphan Bow',
+      description: 'listed then reconciled',
+      kind: 'weapon',
+    });
+    const { tokenId } = await ports.nftBridge.exportToNft(item.id, owner);
+    const listed = await ports.auction.listNftAuction({
+      tokenId,
+      seller: owner,
+      startPriceXlm: '1',
+      durationSec: 60,
+    });
+    registry.markInGame(item.id);
+    await ports.auction.close!({
+      auctionId: listed.auctionId,
+      caller: owner,
+    });
+    const open = await (
+      ports.auction as { listAll: () => Promise<{ auctionId: string | number }[]> }
+    ).listAll();
+    assert.equal(open.length, 0);
+  });
 });

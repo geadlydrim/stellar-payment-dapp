@@ -2,7 +2,7 @@ import type { ItemRegistry, TokenId } from '@/lib/registry';
 import type { AuctionListing, AuctionPort } from '@/lib/ports';
 import {
   PortError,
-  findItemByTokenId,
+  itemForAuctionSettle,
   nextId,
   parseXlm,
   requireListableOwned,
@@ -111,12 +111,14 @@ export class MockAuctionPort implements AuctionPort {
       );
     }
 
-    const item = findItemByTokenId(this.registry, auction.tokenId, auction.seller);
-    if (!item) throw new PortError("That auction's item is missing. Refresh and try again.");
+    const item = itemForAuctionSettle(
+      this.registry,
+      auction.tokenId,
+      auction.seller
+    );
 
-    // Remove from active list by setting endTime in the past and clearing via filter
     const winner = auction.highestBidder;
-    if (winner) {
+    if (winner && item) {
       transferItemOwner(this.registry, item.id, winner);
       for (const h of this.settledHandlers) {
         h({
