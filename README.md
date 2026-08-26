@@ -4,10 +4,10 @@ Play **Stellar4**, then list items on **Stellar4 Marketplace** — fixed-price s
 
 An item is either **usable in-game** or **tradable as an NFT**. Never both at once. Export from Play → list on Marketplace → settle → import back to Play.
 
-[Stellar](https://stellar.org)
-[Next.js](https://nextjs.org)
-[Soroban](https://developers.stellar.org/docs/build/smart-contracts)
-[CI](https://github.com/geadlydrim/stellar-payment-dapp/actions/workflows/ci.yml)
+[![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.org)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
+[![Soroban](https://img.shields.io/badge/Soroban-Contracts-purple)](https://developers.stellar.org/docs/build/smart-contracts)
+[![CI](https://github.com/geadlydrim/stellar-payment-dapp/actions/workflows/ci.yml/badge.svg)](https://github.com/geadlydrim/stellar-payment-dapp/actions/workflows/ci.yml)
 
 
 |                          |                                                                                                          |
