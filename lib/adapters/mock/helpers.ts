@@ -4,6 +4,7 @@ export {
   findItemByTokenId,
   requireListableOwned,
   transferItemOwner,
+  itemForAuctionSettle,
   nextId,
   parseXlm,
 } from '../helpers';

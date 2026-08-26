@@ -38,6 +38,27 @@ export function findItemByTokenId(
   return newest(matches);
 }
 
+/**
+ * Registry row to remap after auction close.
+ * Missing, InGame (stale reconcile), or a different item-nft deploy → skip.
+ * On-chain close must still run without this row.
+ */
+export function itemForAuctionSettle(
+  registry: ItemRegistry,
+  tokenId: TokenId,
+  seller: string,
+  opts?: { auctionNftContract?: string | null; currentNftContract?: string }
+): Item | undefined {
+  const listed = opts?.auctionNftContract?.trim();
+  const current = opts?.currentNftContract?.trim();
+  if (listed && current && listed !== current) return undefined;
+  const item = findItemByTokenId(registry, tokenId, seller);
+  if (!item || item.state !== 'AsNft' || item.tokenId !== tokenId) {
+    return undefined;
+  }
+  return item;
+}
+
 /** Require listable AsNft item owned by seller. */
 export function requireListableOwned(
   registry: ItemRegistry,

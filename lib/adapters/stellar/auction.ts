@@ -2,7 +2,7 @@ import type { ItemRegistry, TokenId } from '@/lib/registry';
 import type { AuctionListing, AuctionPort } from '@/lib/ports';
 import {
   PortError,
-  findItemByTokenId,
+  itemForAuctionSettle,
   parseXlm,
   transferItemOwner,
 } from '@/lib/adapters/helpers';
@@ -142,12 +142,11 @@ export class StellarAuctionPort implements AuctionPort {
       );
     }
     const tokenId = u32ToTokenId(tokenIdOpt as number | bigint);
-    const item = findItemByTokenId(
-      this.registry,
-      tokenId,
-      String(before.seller)
-    );
-    if (!item) throw new PortError("That auction's item is missing. Refresh and try again.");
+    const seller = String(before.seller);
+    const item = itemForAuctionSettle(this.registry, tokenId, seller, {
+      auctionNftContract: parseOptionalAddress(before.nft_contract),
+      currentNftContract: this.contracts.itemNft,
+    });
 
     const endSec = Number(before.end_time ?? 0);
     const nowSec = Math.floor(Date.now() / 1000);
@@ -169,7 +168,7 @@ export class StellarAuctionPort implements AuctionPort {
     }
 
     const winner = parseOptionalAddress(before.highest_bidder);
-    if (winner) {
+    if (winner && item) {
       transferItemOwner(this.registry, item.id, winner);
       for (const h of this.settledHandlers) {
         h({ auctionId: id, tokenId, winner });
